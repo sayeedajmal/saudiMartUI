@@ -126,3 +126,41 @@ yarn start
 - `tailwind.config.ts`: Tailwind CSS configuration.
 - `next.config.ts`: Next.js configuration.
 - `globals.css`: Global styles and Tailwind directives.
+
+## Routes
+
+### Authentication Routes
+- `/auth/login` – User Login Page
+- `/auth/signup` – User Signup Page
+- `/auth/forgot-password` – Forgot Password Page
+
+### Main Public Routes
+- `/` – Landing Page
+- `/products` – Product Listing Page
+- `/products/[slug]` – Product Detail Page (e.g., `/products/industrial-grade-widget-pro`)
+- `/cart` – Quote Cart Page
+
+### Buyer Dashboard Routes
+- `/buyer/dashboard` – Buyer Dashboard Overview
+- `/buyer/dashboard/my-enquiries` – Buyer's Sent Enquiries
+- `/buyer/dashboard/addresses` – Buyer's Address Management
+- `/buyer/dashboard/notifications` – Buyer's Notifications
+- ("My Orders", "Saved Products", and "Quote Requests" in the buyer sidebar are placeholders and currently point to "#")
+
+### Seller Dashboard Routes
+- `/seller/dashboard` – Seller Dashboard Overview
+- `/seller/dashboard/enquiries` – Seller's Received Enquiries
+- `/seller/dashboard/automated-enquiry-response` – AI Enquiry Response Tool
+- `/seller/dashboard/warehouses` – Seller's Warehouse Management
+- `/seller/dashboard/shipping-settings` – Seller's Shipping Settings
+- `/seller/dashboard/notifications` – Seller's Notifications
+- ("Product Manager", "Manage Orders", and "Analytics" in the seller sidebar are placeholders and currently point to "#")
+
+### Admin Panel Routes
+- `/admin/dashboard` – Admin Dashboard Overview
+- `/admin/user-management` – Admin User Management
+- `/admin/category-management` – Admin Category Management
+- `/admin/product-moderation` – Admin Product Moderation
+- `/admin/enquiry-monitoring` – Admin Enquiry & Quote Monitoring
+- `/admin/reports` – Admin Reports Dashboard
+- (The "Settings" link in the admin sidebar is a placeholder and currently points to "#")
