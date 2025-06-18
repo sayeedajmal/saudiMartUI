@@ -6,6 +6,7 @@ import Header from '@/components/layout/header';
 import Footer from '@/components/layout/footer';
 import { ThemeProvider } from '@/components/theme-provider';
 import { ReduxProvider } from '@/lib/redux/provider';
+import ChatbotPopup from '@/components/features/chatbot/ChatbotPopup';
 
 export const metadata: Metadata = {
   title: 'SaudiMart',
@@ -37,6 +38,7 @@ export default function RootLayout({
             </main>
             <Footer />
             <Toaster />
+            <ChatbotPopup /> {/* Added Chatbot UI */}
           </ThemeProvider>
         </ReduxProvider>
       </body>
