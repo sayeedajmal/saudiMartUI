@@ -36,94 +36,94 @@ export default function SellerDashboardPage() {
           </Link>
         </SidebarHeader>
         <ScrollArea className="flex-1">
-        <SidebarContent>
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton href="/seller/dashboard" isActive tooltip="Dashboard">
-                <LayoutDashboard />
-                <span>Dashboard</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton href="/seller/dashboard/product-manager" tooltip="Product Manager">
-                <Package />
-                <span>Product Manager</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton href="/seller/dashboard/inventory" tooltip="Inventory Management">
-                <Boxes />
-                <span>Inventory</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton href="/seller/dashboard/orders" tooltip="Manage Orders">
-                <ShoppingBag />
-                <span>Manage Orders</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton href="/seller/dashboard/enquiries" tooltip="Manage Enquiries">
-                <MessageSquare />
-                <span>Manage Enquiries</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-             <SidebarMenuItem>
-              <SidebarMenuButton href="/seller/dashboard/quotes" tooltip="Manage Quotes">
-                <FileText />
-                <span>Manage Quotes</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton href="/seller/dashboard/automated-enquiry-response" tooltip="AI Enquiry Response">
-                <BotMessageSquare />
-                <span>AI Enquiry Response</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton href="/seller/dashboard/category-management" tooltip="Category Management">
-                <Shapes />
-                <span>Category Management</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton href="/seller/dashboard/warehouses" tooltip="Manage Warehouses">
-                <Warehouse />
-                <span>Warehouses</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton href="/seller/dashboard/shipping-settings" tooltip="Shipping Settings">
-                <Truck />
-                <span>Shipping Settings</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton href="/seller/dashboard/notifications" tooltip="Notifications">
-                <Bell />
-                <span>Notifications</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton href="#" tooltip="Analytics">
-                <BarChart3 />
-                <span>Analytics</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-             <SidebarMenuItem>
-              <SidebarMenuButton href="#" tooltip="Settings">
-                <Settings />
-                <span>Settings</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarContent>
+          <SidebarContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton href="/seller/dashboard" isActive tooltip="Dashboard">
+                  <LayoutDashboard />
+                  <span>Dashboard</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton href="/seller/dashboard/product-manager" tooltip="Product Manager">
+                  <Package />
+                  <span>Product Manager</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton href="/seller/dashboard/inventory" tooltip="Inventory Management">
+                  <Boxes />
+                  <span>Inventory</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton href="/seller/dashboard/orders" tooltip="Manage Orders">
+                  <ShoppingBag />
+                  <span>Manage Orders</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton href="/seller/dashboard/enquiries" tooltip="Manage Enquiries">
+                  <MessageSquare />
+                  <span>Manage Enquiries</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton href="/seller/dashboard/quotes" tooltip="Manage Quotes">
+                  <FileText />
+                  <span>Manage Quotes</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton href="/seller/dashboard/automated-enquiry-response" tooltip="AI Enquiry Response">
+                  <BotMessageSquare />
+                  <span>AI Enquiry Response</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton href="/seller/dashboard/category-management" tooltip="Category Management">
+                  <Shapes />
+                  <span>Category Management</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton href="/seller/dashboard/warehouses" tooltip="Manage Warehouses">
+                  <Warehouse />
+                  <span>Warehouses</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton href="/seller/dashboard/shipping-settings" tooltip="Shipping Settings">
+                  <Truck />
+                  <span>Shipping Settings</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton href="/seller/dashboard/notifications" tooltip="Notifications">
+                  <Bell />
+                  <span>Notifications</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton href="#" tooltip="Analytics">
+                  <BarChart3 />
+                  <span>Analytics</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton href="#" tooltip="Settings">
+                  <Settings />
+                  <span>Settings</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarContent>
         </ScrollArea>
       </Sidebar>
       <SidebarInset>
         <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6 py-4">
-            <SidebarTrigger className="lg:hidden" />
-            <h1 className="font-headline text-2xl font-semibold">Seller Dashboard</h1>
+          <SidebarTrigger className="lg:hidden" />
+          <h1 className="font-headline text-2xl font-semibold">Seller Dashboard</h1>
         </header>
         <main className="flex-1 p-6">
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
@@ -159,16 +159,16 @@ export default function SellerDashboardPage() {
                 <CardDescription>Common tasks at your fingertips.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-2">
-                 <Button asChild variant="ghost" className="w-full justify-start p-2 text-left hover:bg-muted rounded-md text-sm">
-                    <Link href="/seller/dashboard/product-manager/new">Add New Product</Link>
-                 </Button>
-                 <Button asChild variant="ghost" className="w-full justify-start p-2 text-left hover:bg-muted rounded-md text-sm">
-                    <Link href="/seller/dashboard/orders">Manage Orders</Link>
-                 </Button>
-                 <Button asChild variant="ghost" className="w-full justify-start p-2 text-left hover:bg-muted rounded-md text-sm">
-                    <Link href="/seller/dashboard/enquiries">Manage Enquiries</Link>
-                 </Button>
-                 <Button variant="ghost" className="w-full justify-start p-2 text-left hover:bg-muted rounded-md text-sm">Check Analytics</Button>
+                <Button asChild variant="ghost" className="w-full justify-start p-2 text-left hover:bg-muted rounded-md text-sm">
+                  <Link href="/seller/dashboard/product-manager/new">Add New Product</Link>
+                </Button>
+                <Button asChild variant="ghost" className="w-full justify-start p-2 text-left hover:bg-muted rounded-md text-sm">
+                  <Link href="/seller/dashboard/orders">Manage Orders</Link>
+                </Button>
+                <Button asChild variant="ghost" className="w-full justify-start p-2 text-left hover:bg-muted rounded-md text-sm">
+                  <Link href="/seller/dashboard/enquiries">Manage Enquiries</Link>
+                </Button>
+                <Button variant="ghost" className="w-full justify-start p-2 text-left hover:bg-muted rounded-md text-sm">Check Analytics</Button>
               </CardContent>
             </Card>
           </div>

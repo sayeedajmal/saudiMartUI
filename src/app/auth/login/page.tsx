@@ -24,21 +24,27 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, Eye, EyeOff } from "lucide-react"; // Added Eye, EyeOff
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
-import HeroSectionImg from "../../../assets/HeroSectionImage.png"
+import { useDispatch } from 'react-redux';
+import { setLoading, signupSuccess, authError, type SignupResponseData } from '@/lib/redux/slices/userSlice';
+import { useRouter } from 'next/navigation';
+import HeroSectionImg from "../../../assets/HeroSectionImage.png";
+
 
 const loginSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
-  password: z.string().min(6, { message: "Password must be at least 6 characters." }),
+  password: z.string().min(1, { message: "Password is required." }), // Min 1, as min 6 might be too strict for login page before API validation
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
-  const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const dispatch = useDispatch();
+  const router = useRouter();
+  const [showPassword, setShowPassword] = useState(false);
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -48,16 +54,55 @@ export default function LoginPage() {
     },
   });
 
+  const isLoading = form.formState.isSubmitting;
+
   const onSubmit = async (values: LoginFormValues) => {
-    setIsLoading(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    console.log("Login submitted", values);
-    toast({
-      title: "Login Submitted (Placeholder)",
-      description: "Login functionality is not yet implemented.",
-    });
-    setIsLoading(false);
+    dispatch(setLoading());
+    try {
+      const response = await fetch('http://localhost:8080/authen/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: values.email,
+          password: values.password,
+        }),
+      });
+
+      const responseData = await response.json();
+
+      if (!response.ok) {
+        const errorMessage = responseData.message || `Login failed with status: ${response.status}`;
+        throw new Error(errorMessage);
+      }
+      
+      // Assuming login response data structure is the same as signup
+      const loginData: SignupResponseData = responseData.data; 
+      dispatch(signupSuccess(loginData)); // Reusing signupSuccess action
+      
+      toast({
+        title: "Login Successful!",
+        description: responseData.message || "Welcome back!",
+      });
+
+      // Redirect based on role
+      if (loginData.myProfile.role === 'SELLER') {
+        router.push('/seller/dashboard');
+      } else if (loginData.myProfile.role === 'BUYER') {
+        router.push('/buyer/dashboard');
+      } else {
+        router.push('/'); // Default redirect if role is not buyer or seller
+      }
+
+    } catch (error: any) {
+      dispatch(authError(error.message || "An unexpected error occurred."));
+      toast({
+        variant: "destructive",
+        title: "Login Failed",
+        description: error.message || "Invalid credentials or server error. Please try again.",
+      });
+    }
   };
 
   return (
@@ -72,7 +117,7 @@ export default function LoginPage() {
                 alt="SaudiMart B2B Platform - Professional Business Environment"
                 layout="fill"
                 objectFit="cover"
-                data-ai-hint="professional business team"
+                data-ai-hint="saudi business team"
                 priority
               />
             </div>
@@ -113,15 +158,29 @@ export default function LoginPage() {
                       render={({ field }) => (
                         <FormItem>
                           <Label htmlFor="password">Password</Label>
-                          <FormControl>
-                            <Input
-                              id="password"
-                              type="password"
-                              placeholder="••••••••"
-                              autoComplete="current-password"
-                              {...field}
-                            />
-                          </FormControl>
+                          <div className="relative">
+                            <FormControl>
+                              <Input
+                                id="password"
+                                type={showPassword ? "text" : "password"}
+                                placeholder="••••••••"
+                                autoComplete="current-password"
+                                {...field}
+                                className="pr-10"
+                              />
+                            </FormControl>
+                             <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 text-muted-foreground hover:text-foreground"
+                              onClick={() => setShowPassword(!showPassword)}
+                              tabIndex={-1}
+                            >
+                              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                              <span className="sr-only">{showPassword ? "Hide password" : "Show password"}</span>
+                            </Button>
+                          </div>
                           <FormMessage />
                         </FormItem>
                       )}
