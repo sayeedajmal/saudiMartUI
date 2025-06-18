@@ -27,6 +27,7 @@ import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
+import HeroSectionImg from "../../../assets/HeroSectionImage.png"
 
 const loginSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
@@ -67,7 +68,7 @@ export default function LoginPage() {
           <div className="w-full md:w-1/2 flex flex-col justify-center order-1 md:order-none">
             <div className="aspect-video relative rounded-lg overflow-hidden shadow-lg">
               <Image
-                src="/saudimart-hero-meeting.jpg"
+                src={HeroSectionImg}
                 alt="SaudiMart B2B Platform - Professional Business Environment"
                 layout="fill"
                 objectFit="cover"

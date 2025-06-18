@@ -38,6 +38,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useDispatch } from 'react-redux';
 import { setLoading, signupSuccess, authError, type SignupResponseData } from '@/lib/redux/slices/userSlice';
 import Image from "next/image";
+import HeroSectionImg from "../../../assets/HeroSectionImage.png"
+
 
 const signupSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
@@ -145,7 +147,7 @@ export default function SignupPage() {
           <div className="w-full md:w-1/2 flex flex-col justify-center order-1 md:order-none">
             <div className="aspect-video relative rounded-lg overflow-hidden shadow-lg">
               <Image
-                src="/saudimart-hero-meeting.jpg" 
+                src={HeroSectionImg}
                 alt="Join SaudiMart B2B Platform - Professional Business Network"
                 layout="fill"
                 objectFit="cover"
