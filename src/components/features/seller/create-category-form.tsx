@@ -17,7 +17,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-// Removed Card imports as it's used within a Dialog now
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
@@ -26,7 +25,7 @@ import { selectAccessToken } from '@/lib/redux/slices/userSlice';
 
 const createCategorySchema = z.object({
   name: z.string().min(3, { message: "Category name must be at least 3 characters." }).max(100, { message: "Category name must be 100 characters or less." }),
-  description: z.string().min(10, { message: "Description must be at least 10 characters." }).max(500, { message: "Description must be 500 characters or less." }),
+  description: z.string().min(10, { message: "Description must be at least 10 characters." }).max(500, { message: "Description must be 500 characters or less." }).optional().nullable(),
   isActive: z.boolean().default(true),
 });
 
@@ -63,24 +62,30 @@ export function CreateCategoryForm({ onSuccess, onCancel }: CreateCategoryFormPr
 
     setIsLoading(true);
     try {
+      // For creating a top-level category, parentCategory would be null.
+      // The backend should handle this if parentCategory is part of the request body.
+      const payload = {
+        name: values.name,
+        description: values.description || null, // Ensure null if empty
+        isActive: values.isActive,
+        parentCategory: null, // Explicitly setting for top-level category creation
+      };
+
       const response = await fetch('http://localhost:8080/categories', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${accessToken}`,
         },
-        body: JSON.stringify({
-          parentCategory: null, 
-          name: values.name,
-          description: values.description,
-          isActive: values.isActive,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const responseData = await response.json();
 
       if (!response.ok) {
-        throw new Error(responseData.message || `Failed to create category. Status: ${response.status}`);
+         // Assuming responseData.message or a generic error
+        const errorMessage = responseData.message || `Failed to create category. Status: ${response.status}`;
+        throw new Error(errorMessage);
       }
 
       toast({
@@ -130,6 +135,7 @@ export function CreateCategoryForm({ onSuccess, onCancel }: CreateCategoryFormPr
                   placeholder="Provide a brief description for this category..."
                   className="min-h-[100px]"
                   {...field}
+                  value={field.value ?? ''}
                 />
               </FormControl>
               <FormMessage />
@@ -139,9 +145,9 @@ export function CreateCategoryForm({ onSuccess, onCancel }: CreateCategoryFormPr
 
         <FormItem>
           <FormLabel>Parent Category</FormLabel>
-          <Input value="None (Top-level category)" disabled className="bg-muted/50" />
+          <Input value="None (Creates a Top-level category)" disabled className="bg-muted/50" />
           <FormDescription>
-            This form creates top-level categories.
+            This form creates top-level categories. Sub-category creation can be managed via editing a category (future feature).
           </FormDescription>
         </FormItem>
         
@@ -186,5 +192,3 @@ export function CreateCategoryForm({ onSuccess, onCancel }: CreateCategoryFormPr
     </Form>
   );
 }
-
-    

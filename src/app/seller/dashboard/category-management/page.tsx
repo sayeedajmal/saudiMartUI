@@ -27,25 +27,17 @@ import { selectAccessToken } from '@/lib/redux/slices/userSlice';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
-
-export interface SimpleCategory {
-  id: string;
-  name: string;
-}
+// Aligned with backend Category.java
 export interface SellerCategory {
-  id: string;
+  id: number; // Long in Java maps to number in TS
   name: string;
-  description: string;
+  description: string | null; // Nullable in backend
   isActive: boolean;
-  parentCategory: SimpleCategory | null;
-  childCategories: SimpleCategory[];
+  parentCategory: { id: number; name: string; } | null; // Simplified representation
+  childCategories: { id: number; name: string; }[]; // Simplified representation
+  createdAt?: string; // Timestamp in Java, string in TS
 }
 
-const DUMMY_CATEGORIES: SellerCategory[] = [
-  { id: 'cat_seller_1', name: 'My Custom Electronics', description: 'All kinds of custom electronic components sold by me.', isActive: true, parentCategory: null, childCategories: [] },
-  { id: 'cat_seller_2', name: 'Handmade Textiles', description: 'Unique handmade textile products.', isActive: true, parentCategory: null, childCategories: [] },
-  { id: 'cat_seller_3', name: 'Locally Sourced Spices', description: 'Fresh and aromatic spices sourced locally.', isActive: false, parentCategory: null, childCategories: [] },
-];
 
 export default function SellerCategoryManagementPage() {
   const [categories, setCategories] = useState<SellerCategory[]>([]);
@@ -63,33 +55,41 @@ export default function SellerCategoryManagementPage() {
     setIsLoading(true);
     setError(null);
     if (!accessToken) {
-      setError("Authentication token not found. Please log in.");
+      // For UI demo purposes if not logged in, can show an error or empty state.
+      // In a real app, this page would be protected by RoleProtectedRoute anyway.
+      toast({ variant: "destructive", title: "Authentication Error", description: "Please log in to view categories."});
       setIsLoading(false);
-      // For demo purposes, still load dummy data if not logged in
-      // In a real app, you might want to prevent this or show a login prompt
-      setCategories(DUMMY_CATEGORIES);
       return;
     }
 
     try {
-      // TODO: Replace with actual API call when endpoint is known
-      // For now, simulate API call with dummy data
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network delay
-      // const response = await fetch('http://localhost:8080/categories/seller/me', {
-      //   headers: {
-      //     'Authorization': `Bearer ${accessToken}`,
-      //   },
-      // });
-      // if (!response.ok) {
-      //   const errorData = await response.json();
-      //   throw new Error(errorData.message || 'Failed to fetch categories');
-      // }
-      // const data: SellerCategory[] = await response.json();
-      // setCategories(data);
-      setCategories(DUMMY_CATEGORIES); // Using dummy data for now
+      const response = await fetch('http://localhost:8080/categories', {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+        },
+      });
+      
+      const responseData = await response.json();
+
+      if (!response.ok) {
+        throw new Error(responseData.message || 'Failed to fetch categories');
+      }
+      // Assuming responseData.data is List<Category> from backend
+      // We map it to SellerCategory, potentially simplifying parent/child for the list
+      const fetchedCategories: SellerCategory[] = responseData.data.map((cat: any) => ({
+        id: cat.id,
+        name: cat.name,
+        description: cat.description,
+        isActive: cat.isActive,
+        createdAt: cat.createdAt,
+        // For simplicity in list, we might just show parent name or ID if available directly
+        // Or leave them null/empty if deep fetching is too complex for this view
+        parentCategory: cat.parentCategory ? { id: cat.parentCategory.id, name: cat.parentCategory.name } : null,
+        childCategories: cat.childCategories ? cat.childCategories.map((child: any) => ({ id: child.id, name: child.name })) : [],
+      }));
+      setCategories(fetchedCategories);
     } catch (err: any) {
       setError(err.message || "An unexpected error occurred while fetching categories.");
-      setCategories(DUMMY_CATEGORIES); // Fallback to dummy data on error for UI demo
       toast({
         variant: "destructive",
         title: "Error fetching categories",
@@ -107,8 +107,9 @@ export default function SellerCategoryManagementPage() {
   const handleEdit = (category: SellerCategory) => {
     setSelectedCategoryToEdit(category);
     setIsEditModalOpen(true);
-    // TODO: Implement Edit Category Form/Modal
-    toast({ title: "Edit Clicked (Not Implemented)", description: `Editing: ${category.name}` });
+    // TODO: Implement Edit Category Form/Modal.
+    // It would make a PUT request to http://localhost:8080/categories/{category.id}
+    toast({ title: "Edit Clicked (Not Fully Implemented)", description: `Editing: ${category.name}. API for PUT /categories/${category.id} would be used.` });
   };
 
   const handleDelete = (category: SellerCategory) => {
@@ -116,12 +117,39 @@ export default function SellerCategoryManagementPage() {
   };
 
   const confirmDelete = async () => {
-    if (!categoryToDelete) return;
-    // TODO: Implement actual API call for delete
-    // For now, simulate delete
-    toast({ title: "Category Deleted (Simulated)", description: `${categoryToDelete.name} has been deleted.` });
-    setCategories(prev => prev.filter(c => c.id !== categoryToDelete.id));
-    setCategoryToDelete(null);
+    if (!categoryToDelete || !accessToken) {
+      toast({ variant: "destructive", title: "Error", description: "Cannot delete category. Missing data or auth token."});
+      setCategoryToDelete(null);
+      return;
+    }
+    setIsLoading(true); // Indicate loading state for delete operation
+    try {
+      const response = await fetch(`http://localhost:8080/categories/${categoryToDelete.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+        },
+      });
+
+      // Backend returns 200 OK with a body for delete.
+      const responseData = await response.json();
+
+      if (!response.ok) {
+        throw new Error(responseData.message || `Failed to delete category. Status: ${response.status}`);
+      }
+
+      toast({ title: "Category Deleted", description: responseData.message || `${categoryToDelete.name} has been deleted.` });
+      setCategories(prev => prev.filter(c => c.id !== categoryToDelete!.id));
+    } catch (err: any) {
+      toast({
+        variant: "destructive",
+        title: "Error Deleting Category",
+        description: err.message || "Could not delete the category.",
+      });
+    } finally {
+      setCategoryToDelete(null);
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -226,8 +254,8 @@ export default function SellerCategoryManagementPage() {
           <Card className="shadow-md">
             <CardHeader className="flex flex-row justify-between items-center">
               <div>
-                <CardTitle className="font-headline">Your Product Categories</CardTitle>
-                <CardDescription>Manage all categories you have created for your products.</CardDescription>
+                <CardTitle className="font-headline">Product Categories</CardTitle>
+                <CardDescription>Manage categories for your products. (Note: Currently displays all system categories)</CardDescription>
               </div>
               <Button onClick={() => setIsCreateModalOpen(true)} className="bg-accent text-accent-foreground hover:bg-accent/90">
                 <PlusCircle className="mr-2 h-4 w-4" /> Add New Category
@@ -244,7 +272,7 @@ export default function SellerCategoryManagementPage() {
                 <p className="text-destructive text-center py-8">{error}</p>
               )}
               {!isLoading && !error && categories.length === 0 && (
-                <p className="text-muted-foreground text-center py-8">You haven't created any categories yet. Add one to get started!</p>
+                <p className="text-muted-foreground text-center py-8">No categories found. Add one to get started!</p>
               )}
               {!isLoading && !error && categories.length > 0 && (
                 <Table>
@@ -253,6 +281,7 @@ export default function SellerCategoryManagementPage() {
                       <TableHead>Name</TableHead>
                       <TableHead>Description</TableHead>
                       <TableHead>Status</TableHead>
+                      <TableHead>Parent</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -260,11 +289,14 @@ export default function SellerCategoryManagementPage() {
                     {categories.map((category) => (
                       <TableRow key={category.id}>
                         <TableCell className="font-medium">{category.name}</TableCell>
-                        <TableCell className="text-sm text-muted-foreground max-w-xs truncate">{category.description}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground max-w-xs truncate" title={category.description || ''}>{category.description || 'N/A'}</TableCell>
                         <TableCell>
                           <Badge variant={category.isActive ? "default" : "secondary"}>
                             {category.isActive ? "Active" : "Inactive"}
                           </Badge>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {category.parentCategory ? category.parentCategory.name : 'N/A (Top-level)'}
                         </TableCell>
                         <TableCell className="text-right space-x-2">
                           <Button variant="outline" size="sm" onClick={() => handleEdit(category)}>
@@ -289,30 +321,28 @@ export default function SellerCategoryManagementPage() {
           <DialogHeader>
             <DialogTitle className="font-headline flex items-center"><Shapes className="mr-2 h-5 w-5 text-primary" />Create New Category</DialogTitle>
             <DialogDescription>
-              Add a new top-level product category for your store.
+              Add a new top-level product category.
             </DialogDescription>
           </DialogHeader>
           <CreateCategoryForm
             onSuccess={() => {
               setIsCreateModalOpen(false);
-              fetchSellerCategories(); // Refresh the list
+              fetchSellerCategories(); 
             }}
             onCancel={() => setIsCreateModalOpen(false)}
           />
         </DialogContent>
       </Dialog>
 
-      {/* Placeholder for Edit Modal - To be implemented */}
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="font-headline">Edit Category: {selectedCategoryToEdit?.name}</DialogTitle>
             <DialogDescription>
-              Update the details for this category. (Edit form not yet implemented)
+              Update the details for this category. (Edit form and API integration not yet fully implemented)
             </DialogDescription>
           </DialogHeader>
-          {/* <EditCategoryForm category={selectedCategoryToEdit} onSuccess={() => { setIsEditModalOpen(false); fetchSellerCategories(); }} onCancel={() => setIsEditModalOpen(false)} /> */}
-          <p className="py-4 text-center text-muted-foreground">(Edit form will go here)</p>
+          <p className="py-4 text-center text-muted-foreground">(Full Edit form for name, description, isActive, parentCategory will go here. PUT /categories/{selectedCategoryToEdit?.id} )</p>
            <DialogFooter>
             <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>Cancel</Button>
             <Button className="bg-accent text-accent-foreground hover:bg-accent/90" disabled>Save Changes (NI)</Button>
@@ -320,7 +350,6 @@ export default function SellerCategoryManagementPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
       {categoryToDelete && (
         <AlertDialog open={!!categoryToDelete} onOpenChange={() => setCategoryToDelete(null)}>
           <AlertDialogContent>
@@ -328,7 +357,6 @@ export default function SellerCategoryManagementPage() {
               <AlertDialogTitle>Are you sure you want to delete &quot;{categoryToDelete.name}&quot;?</AlertDialogTitle>
               <AlertDialogDescription>
                 This action cannot be undone. This will permanently delete the category.
-                Associated products might need to be re-categorized.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
