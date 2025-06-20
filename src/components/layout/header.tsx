@@ -21,13 +21,19 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useState, useEffect } from 'react';
 
 export default function Header() {
   const isAuthenticated = useSelector(selectIsAuthenticated);
-  const user = useSelector(selectUser) as MyProfile | null; // Cast to MyProfile or null
+  const user = useSelector(selectUser) as MyProfile | null;
   const dispatch = useDispatch();
   const router = useRouter();
   const { toast } = useToast();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleLogout = () => {
     dispatch(logout());
@@ -69,12 +75,12 @@ export default function Header() {
           >
             Products
           </Link>
-          {isAuthenticated && user?.role === 'BUYER' && (
+          {mounted && isAuthenticated && user?.role === 'BUYER' && (
              <Link href="/buyer/dashboard" className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary">
                 Buyer Dashboard
              </Link>
           )}
-          {isAuthenticated && user?.role === 'SELLER' && (
+          {mounted && isAuthenticated && user?.role === 'SELLER' && (
              <Link href="/seller/dashboard" className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary">
                 Seller Dashboard
              </Link>
@@ -88,7 +94,7 @@ export default function Header() {
             </Link>
           </Button>
 
-          {isAuthenticated && user ? (
+          {mounted && isAuthenticated && user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-9 w-9 md:h-10 md:w-10 rounded-full">
@@ -124,7 +130,7 @@ export default function Header() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-          ) : (
+          ) : mounted && !isAuthenticated ? (
             <>
               <Button variant="outline" asChild className="hidden sm:inline-flex">
                 <Link href="/auth/login">Login</Link>
@@ -136,7 +142,7 @@ export default function Header() {
                 <Link href="/auth/signup">Sign Up</Link>
               </Button>
             </>
-          )}
+          ) : null}
         </div>
         <div className="ml-2 md:hidden">
           <Sheet>
@@ -172,17 +178,17 @@ export default function Header() {
                 >
                   <ShoppingCart className="mr-2 h-5 w-5" /> Quote Cart
                 </Link>
-                 {isAuthenticated && user?.role === 'BUYER' && (
+                 {mounted && isAuthenticated && user?.role === 'BUYER' && (
                     <Link href="/buyer/dashboard" className="text-muted-foreground hover:text-primary">Buyer Dashboard</Link>
                   )}
-                  {isAuthenticated && user?.role === 'SELLER' && (
+                  {mounted && isAuthenticated && user?.role === 'SELLER' && (
                     <Link href="/seller/dashboard" className="text-muted-foreground hover:text-primary">Seller Dashboard</Link>
                   )}
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Theme</span>
                   <ThemeToggleButton />
                 </div>
-                {isAuthenticated ? (
+                {mounted && isAuthenticated ? (
                   <Button
                     variant="outline"
                     size="sm"
@@ -192,7 +198,7 @@ export default function Header() {
                   >
                     <span><LogOut className="mr-2 h-4 w-4" />Log out</span>
                   </Button>
-                ) : (
+                ) : mounted && !isAuthenticated ? (
                   <>
                     <Button
                       variant="outline"
@@ -210,7 +216,7 @@ export default function Header() {
                       <Link href="/auth/signup">Sign Up</Link>
                     </Button>
                   </>
-                )}
+                ) : null}
               </nav>
             </SheetContent>
           </Sheet>
