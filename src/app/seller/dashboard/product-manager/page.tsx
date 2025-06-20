@@ -25,16 +25,15 @@ import { useToast } from '@/hooks/use-toast';
 import { selectAccessToken } from '@/lib/redux/slices/userSlice';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
-// Matches the backend Products entity structure for relevant list fields
 export interface SellerProductListItem {
-  id: number; // Changed from product_id to id, and type to number
+  id: number;
   name: string;
   sku: string;
-  category?: { // Category can be null or an object
+  category?: {
     id: number;
     name: string;
   } | null;
-  basePrice: number | null; // Changed from base_price, can be null
+  basePrice: number | null;
   available: boolean;
 }
 
@@ -69,7 +68,6 @@ export default function SellerProductManagerPage() {
         throw new Error(responseData.message || 'Failed to fetch products');
       }
       
-      // Assuming responseData.data is the array of products from your ResponseWrapper
       const fetchedProducts: SellerProductListItem[] = responseData.data.map((p: any) => ({
         id: p.id,
         name: p.name,
@@ -96,8 +94,10 @@ export default function SellerProductManagerPage() {
   }, [accessToken, toast]);
 
   useEffect(() => {
-    fetchSellerProducts();
-  }, [fetchSellerProducts]);
+    if (accessToken) {
+        fetchSellerProducts();
+    }
+  }, [accessToken, fetchSellerProducts]);
 
   const handleDeleteProduct = (product: SellerProductListItem) => {
     setProductToDelete(product);
@@ -125,7 +125,7 @@ export default function SellerProductManagerPage() {
       }
       
       toast({ title: "Product Deleted", description: responseData.message || `${productToDelete.name} has been deleted.` });
-      fetchSellerProducts(); // Refresh list
+      fetchSellerProducts(); 
     } catch (err: any) {
        toast({ variant: "destructive", title: "Error Deleting Product", description: err.message });
     } finally {
@@ -297,14 +297,12 @@ export default function SellerProductManagerPage() {
                         </TableCell>
                         <TableCell className="text-right space-x-2">
                            <Button variant="outline" size="sm" asChild>
-                            {/* Use product.id for the link, assuming slug is not available directly */}
                             <Link href={`/products/${product.id}`} target="_blank" title="View on storefront (uses ID, adjust if slug needed)">
                               <Eye className="mr-1 h-3 w-3" /> 
                             </Link>
                           </Button>
                           <Button variant="outline" size="sm" asChild>
-                            {/* TODO: Update href to actual edit page: /seller/dashboard/product-manager/edit/${product.id} */}
-                            <Link href={`#edit-${product.id}`} title="Edit Product (Not Implemented)">
+                            <Link href={`/seller/dashboard/product-manager/edit/${product.id}`} title="Edit Product">
                               <Edit3 className="mr-1 h-3 w-3" /> Edit
                             </Link>
                           </Button>
