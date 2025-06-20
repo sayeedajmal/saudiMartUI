@@ -22,19 +22,20 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from '@/hooks/use-toast';
-import { selectAccessToken } from '@/lib/redux/slices/userSlice';
+import { selectAccessToken, selectUser, type MyProfile } from '@/lib/redux/slices/userSlice';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 export interface SellerProductListItem {
-  id: number;
+  id: number; // Assuming ID is number from backend
   name: string;
   sku: string;
   category?: {
-    id: number;
+    id: number; // Assuming ID is number
     name: string;
   } | null;
   basePrice: number | null;
   available: boolean;
+  // Add other fields from your backend 'Products' entity if needed for the list
 }
 
 export default function SellerProductManagerPage() {
@@ -45,20 +46,23 @@ export default function SellerProductManagerPage() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const accessToken = useSelector(selectAccessToken);
+  const currentUser = useSelector(selectUser) as MyProfile | null;
   const { toast } = useToast();
 
   const fetchSellerProducts = useCallback(async () => {
     setIsLoading(true);
     setError(null);
-    if (!accessToken) {
-      toast({ title: "Authentication Error", description: "Please log in to view your products.", variant: "destructive" });
-      setProducts([]);
+    if (!accessToken || !currentUser?.id) {
+      // toast({ title: "Authentication Error", description: "Please log in to view your products.", variant: "destructive" });
+      setProducts([]); // Show no products if not logged in
       setIsLoading(false);
       return;
     }
 
     try {
-      const response = await fetch('http://localhost:8080/products', {
+      // Backend should ideally filter products by seller ID based on the token.
+      // If your GET /products endpoint doesn't do this, you might need a new endpoint like /products/seller/{sellerId} or /products/me
+      const response = await fetch('http://localhost:8080/products', { // This might fetch ALL products
         headers: { 'Authorization': `Bearer ${accessToken}` },
       });
       
@@ -68,7 +72,13 @@ export default function SellerProductManagerPage() {
         throw new Error(responseData.message || 'Failed to fetch products');
       }
       
-      const fetchedProducts: SellerProductListItem[] = responseData.data.map((p: any) => ({
+      // Filter products on the client-side if backend doesn't filter by seller
+      // This is NOT ideal for performance or security with many products, but works for now.
+      // Backend filtering is strongly recommended.
+      const allProducts: any[] = responseData.data || [];
+      const sellerSpecificProducts = allProducts.filter(p => p.seller?.id?.toString() === currentUser.id);
+      
+      const fetchedProducts: SellerProductListItem[] = sellerSpecificProducts.map((p: any) => ({
         id: p.id,
         name: p.name,
         sku: p.sku,
@@ -76,6 +86,7 @@ export default function SellerProductManagerPage() {
         basePrice: p.basePrice,
         available: p.available,
       }));
+
       setProducts(fetchedProducts);
        if (fetchedProducts.length === 0) {
          toast({ title: "No Products Found", description: "You haven't added any products yet."});
@@ -91,13 +102,16 @@ export default function SellerProductManagerPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [accessToken, toast]);
+  }, [accessToken, currentUser, toast]);
 
   useEffect(() => {
-    if (accessToken) {
+    if (accessToken && currentUser) { // Ensure currentUser is available
         fetchSellerProducts();
+    } else if (!accessToken || !currentUser) {
+        setProducts([]); // Clear products if user logs out or data isn't ready
+        setIsLoading(false);
     }
-  }, [accessToken, fetchSellerProducts]);
+  }, [accessToken, currentUser, fetchSellerProducts]);
 
   const handleDeleteProduct = (product: SellerProductListItem) => {
     setProductToDelete(product);
@@ -120,7 +134,7 @@ export default function SellerProductManagerPage() {
 
       const responseData = await response.json();
 
-      if (!response.ok) {
+      if (!response.ok) { // Check for generic error too
         throw new Error(responseData.message || `Failed to delete product. Status: ${response.status}`);
       }
       
@@ -302,7 +316,7 @@ export default function SellerProductManagerPage() {
                             </Link>
                           </Button>
                           <Button variant="outline" size="sm" asChild>
-                            <Link href={`/seller/dashboard/product-manager/edit/${product.id}`} title="Edit Product">
+                            <Link href={`/seller/dashboard/product-manager/${product.id}`} title="Edit Product">
                               <Edit3 className="mr-1 h-3 w-3" /> Edit
                             </Link>
                           </Button>
@@ -342,3 +356,4 @@ export default function SellerProductManagerPage() {
     </SidebarProvider>
   );
 }
+
