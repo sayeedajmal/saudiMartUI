@@ -44,7 +44,7 @@ import { selectAccessToken } from '@/lib/redux/slices/userSlice';
 
 
 const DUMMY_SELLER_CATEGORIES = [
-  { id: "1", name: "Electronics (Dummy ID 1)" }, // Assuming IDs are strings for now, adjust if numeric
+  { id: "1", name: "Electronics (Dummy ID 1)" },
   { id: "2", name: "Textiles (Dummy ID 2)" },
   { id: "3", name: "Spices (Dummy ID 3)" },
   { id: "4", name: "General Goods (Dummy ID 4)" }
@@ -52,37 +52,37 @@ const DUMMY_SELLER_CATEGORIES = [
 
 const productVariantSchema = z.object({
   sku: z.string().min(1, "Variant SKU is required").max(50),
-  variant_name: z.string().optional(),
-  additional_price: z.coerce.number({invalid_type_error: "Additional price must be a number"}).optional(),
+  variant_name: z.string().optional(), // Will be mapped to variantName
+  additional_price: z.coerce.number({invalid_type_error: "Additional price must be a number"}).optional(), // Will be mapped to additionalPrice
   available: z.boolean().default(true),
 });
 
 const productImageSchema = z.object({
-  image_url: z.string().url({ message: "Please enter a valid URL for the image." }),
-  alt_text: z.string().optional(),
-  display_order: z.coerce.number({invalid_type_error: "Display order must be a number"}).int().optional(),
-  is_primary: z.boolean().default(false),
+  image_url: z.string().url({ message: "Please enter a valid URL for the image." }), // Will be mapped to imageUrl
+  alt_text: z.string().optional(), // Will be mapped to altText
+  display_order: z.coerce.number({invalid_type_error: "Display order must be a number"}).int().optional(), // Will be mapped to displayOrder
+  is_primary: z.boolean().default(false), // Will be mapped to isPrimary
 });
 
 const productSpecificationSchema = z.object({
-  spec_name: z.string().min(1, "Specification name is required"),
-  spec_value: z.string().min(1, "Specification value is required"),
+  spec_name: z.string().min(1, "Specification name is required"), // Will be mapped to specName
+  spec_value: z.string().min(1, "Specification value is required"), // Will be mapped to specValue
   unit: z.string().optional(),
-  display_order: z.coerce.number({invalid_type_error: "Display order must be a number"}).int().optional(),
+  display_order: z.coerce.number({invalid_type_error: "Display order must be a number"}).int().optional(), // Will be mapped to displayOrder
 });
 
 const priceTierSchema = z.object({
-  min_quantity: z.coerce.number({invalid_type_error: "Min quantity must be a number"}).int().min(1, "Min quantity must be at least 1"),
-  max_quantity: z.coerce.number({invalid_type_error: "Max quantity must be a number"}).int().optional().nullable().transform(val => val === null || val === '' ? undefined : val),
-  price_per_unit: z.coerce.number({invalid_type_error: "Price must be a number"}).positive("Price must be positive"),
-  is_active: z.boolean().default(true),
+  min_quantity: z.coerce.number({invalid_type_error: "Min quantity must be a number"}).int().min(1, "Min quantity must be at least 1"), // Will be mapped to minQuantity
+  max_quantity: z.coerce.number({invalid_type_error: "Max quantity must be a number"}).int().optional().nullable().transform(val => val === null || val === '' ? undefined : val), // Will be mapped to maxQuantity
+  price_per_unit: z.coerce.number({invalid_type_error: "Price must be a number"}).positive("Price must be positive"), // Will be mapped to pricePerUnit
+  is_active: z.boolean().default(true), // Will be mapped to isActive
 });
 
 
 const productSchema = z.object({
   name: z.string().min(3, "Product name must be at least 3 characters").max(255),
   description: z.string().min(10, "Description must be at least 10 characters").max(5000).optional().nullable(),
-  category_id: z.string().min(1, "Please select a category"), // This will be used to form category: {id: ...}
+  category_id: z.string().min(1, "Please select a category"),
   basePrice: z.coerce.number({invalid_type_error: "Base price must be a number"}).positive("Price must be a positive number").optional(),
   isBulkOnly: z.boolean().default(false),
   minimumOrderQuantity: z.coerce.number({invalid_type_error: "MOQ must be a number"}).int().min(1, "MOQ must be at least 1").default(1),
@@ -100,7 +100,7 @@ const productSchema = z.object({
 type ProductFormValues = z.infer<typeof productSchema>;
 
 export default function AddNewProductPage() {
-  const [isSubmitting, setIsSubmitting] = useState(false); // Changed isLoading to isSubmitting for clarity
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
   const accessToken = useSelector(selectAccessToken);
 
@@ -155,64 +155,173 @@ export default function AddNewProductPage() {
       return;
     }
     
-    // Construct the payload according to the backend's Products entity structure
-    const apiPayload = {
+    // 1. Create Main Product
+    const mainProductApiPayload = {
       name: values.name,
       description: values.description || null,
-      category: values.category_id ? { id: values.category_id } : null, // Backend expects Category object
-      basePrice: values.basePrice, // Already coerced to number by Zod if provided
+      category: values.category_id ? { id: parseInt(values.category_id, 10) } : null, // Assuming category_id is numeric
+      basePrice: values.basePrice,
       isBulkOnly: values.isBulkOnly,
       minimumOrderQuantity: values.minimumOrderQuantity,
-      weight: values.weight, // Already coerced to number by Zod if provided
-      weightUnit: values.weightUnit || "kg", // Default if empty, or send null
+      weight: values.weight,
+      weightUnit: values.weightUnit || null,
       dimensions: values.dimensions || null,
       sku: values.sku,
       available: values.available,
-      // variants, images, specifications, priceTiers are not sent for this specific request
-      // as per user focus on basic product creation first.
-      // If your backend expects empty arrays for these, add them:
-      // productVariants: [], productImages: [], productSpecifications: [], priceTiers: []
     };
     
-    console.log("Submitting to API (http://localhost:8080/products):", JSON.stringify(apiPayload, null, 2));
+    let newlyCreatedProductId: number | null = null;
+    let mainProductCreationSuccessful = false;
 
     try {
-      const response = await fetch('http://localhost:8080/products', {
+      const productResponse = await fetch('http://localhost:8080/products', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${accessToken}`,
         },
-        body: JSON.stringify(apiPayload),
+        body: JSON.stringify(mainProductApiPayload),
       });
 
-      const responseData = await response.json();
+      const productResponseData = await productResponse.json();
 
-      if (!response.ok) {
-        console.error("API Error Response:", responseData);
-        const serverMessage = responseData.message || (responseData.errors && responseData.errors.map((e: any) => e.defaultMessage || e.message).join(', ')) || `Failed to create product. Status: ${response.status}`;
+      if (!productResponse.ok || productResponseData.statusCode !== 200 && productResponse.status !== 201) { // Check both status codes
+        const serverMessage = productResponseData.message || (productResponseData.errors && productResponseData.errors.map((e: any) => e.defaultMessage || e.message).join(', ')) || `Failed to create product. Status: ${productResponse.status}`;
         throw new Error(serverMessage);
       }
-
+      
+      newlyCreatedProductId = productResponseData.data.id;
+      mainProductCreationSuccessful = true;
       toast({
-        title: "Product Created Successfully!",
-        description: responseData.message || `Product "${values.name}" has been created.`,
+        title: "Main Product Created!",
+        description: `Product "${values.name}" created with ID: ${newlyCreatedProductId}. Now adding details...`,
       });
-      form.reset({ 
-        name: "", description: "", category_id: "", basePrice: undefined, isBulkOnly: false, minimumOrderQuantity: 1,
-        weight: undefined, weightUnit: "", dimensions: "", sku: "", available: true,
-        variants: [], images: [], specifications: [], priceTiers: [],
-      }); 
+
     } catch (error: any) {
       toast({
         variant: "destructive",
-        title: "Error Creating Product",
-        description: error.message || "An unexpected error occurred. Please check the console for more details.",
+        title: "Error Creating Main Product",
+        description: error.message || "An unexpected error occurred.",
       });
-      console.error("Product creation error details:", error);
-    } finally {
       setIsSubmitting(false);
+      return; // Stop if main product creation fails
     }
+
+    // 2. Create Sub-Entities if Main Product was Created
+    if (newlyCreatedProductId) {
+      const subEntityPromises = [];
+
+      // Variants
+      if (values.variants && values.variants.length > 0) {
+        for (const variant of values.variants) {
+          const variantPayload = {
+            sku: variant.sku,
+            variantName: variant.variant_name || null,
+            additionalPrice: variant.additional_price,
+            available: variant.available,
+            product: { id: newlyCreatedProductId }
+          };
+          subEntityPromises.push(
+            fetch('http://localhost:8080/productvariants', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+              body: JSON.stringify(variantPayload),
+            }).then(res => res.json().then(data => ({ type: 'Variant', name: variant.sku, success: res.ok && res.status === 201, data })))
+              .catch(err => ({ type: 'Variant', name: variant.sku, success: false, error: err.message }))
+          );
+        }
+      }
+
+      // Images
+      if (values.images && values.images.length > 0) {
+        for (const image of values.images) {
+          const imagePayload = {
+            imageUrl: image.image_url,
+            altText: image.alt_text || null,
+            displayOrder: image.display_order,
+            isPrimary: image.is_primary,
+            product: { id: newlyCreatedProductId }
+          };
+          subEntityPromises.push(
+            fetch('http://localhost:8080/productimages', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+              body: JSON.stringify(imagePayload),
+            }).then(res => res.json().then(data => ({ type: 'Image', name: image.alt_text || `Image ${image.display_order}`, success: res.ok && res.status === 201, data })))
+              .catch(err => ({ type: 'Image', name: image.alt_text || `Image ${image.display_order}`, success: false, error: err.message }))
+          );
+        }
+      }
+      
+      // Specifications
+      if (values.specifications && values.specifications.length > 0) {
+        for (const spec of values.specifications) {
+          const specPayload = {
+            specName: spec.spec_name,
+            specValue: spec.spec_value,
+            unit: spec.unit || null,
+            displayOrder: spec.display_order,
+            product: { id: newlyCreatedProductId }
+          };
+          subEntityPromises.push(
+            fetch('http://localhost:8080/productspecifications', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+              body: JSON.stringify(specPayload),
+            }).then(res => res.json().then(data => ({ type: 'Specification', name: spec.spec_name, success: res.ok && res.status === 201, data })))
+              .catch(err => ({ type: 'Specification', name: spec.spec_name, success: false, error: err.message }))
+          );
+        }
+      }
+
+      // Price Tiers
+      if (values.priceTiers && values.priceTiers.length > 0) {
+        for (const tier of values.priceTiers) {
+          const tierPayload = {
+            minQuantity: tier.min_quantity,
+            maxQuantity: tier.max_quantity,
+            pricePerUnit: tier.price_per_unit,
+            isActive: tier.is_active,
+            product: { id: newlyCreatedProductId }
+          };
+          subEntityPromises.push(
+            fetch('http://localhost:8080/pricetiers', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+              body: JSON.stringify(tierPayload),
+            }).then(res => res.json().then(data => ({ type: 'Price Tier', name: `Tier (Min Qty: ${tier.min_quantity})`, success: res.ok && res.status === 201, data })))
+             .catch(err => ({ type: 'Price Tier', name: `Tier (Min Qty: ${tier.min_quantity})`, success: false, error: err.message }))
+          );
+        }
+      }
+
+      const results = await Promise.allSettled(subEntityPromises);
+      let allSubEntitiesSuccessful = true;
+      results.forEach(result => {
+        if (result.status === 'fulfilled' && result.value) {
+          const { type, name, success, data, error } = result.value;
+          if (success) {
+            toast({ title: `${type} Added`, description: `${name} details saved successfully.` });
+          } else {
+            allSubEntitiesSuccessful = false;
+            const errorMessage = data?.message || data?.errors?.map((e:any) => e.defaultMessage || e.message).join(', ') || error || 'Unknown error';
+            toast({ variant: "destructive", title: `Error Adding ${type}`, description: `Failed to save ${name}: ${errorMessage}` });
+          }
+        } else if (result.status === 'rejected') {
+          allSubEntitiesSuccessful = false;
+          toast({ variant: "destructive", title: `Error Adding Detail`, description: `A sub-detail failed to save: ${result.reason}` });
+        }
+      });
+
+      if (mainProductCreationSuccessful && allSubEntitiesSuccessful) {
+        toast({ title: "Product & Details Saved!", description: "All product information has been successfully saved." });
+        form.reset();
+      } else if (mainProductCreationSuccessful) {
+         toast({ title: "Partial Success", description: "Main product saved, but some details had issues. Check notifications.", duration: 5000 });
+         form.reset(); // Reset even on partial success of main product
+      }
+    }
+    setIsSubmitting(false);
   };
 
   return (
@@ -390,7 +499,7 @@ export default function AddNewProductPage() {
                           </SelectContent>
                         </Select>
                         <FormDescription>
-                          Select the primary category for this product. These are dummy categories. <Link href="/seller/dashboard/category-management" className="text-xs text-primary hover:underline">Manage Categories</Link>
+                           Select the primary category for this product. <Link href="/seller/dashboard/category-management" className="text-xs text-primary hover:underline">Manage Categories</Link>
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
@@ -536,13 +645,12 @@ export default function AddNewProductPage() {
                   <Info className="h-5 w-5 text-primary" />
                   <AlertTitle className="text-primary font-semibold">Advanced Details</AlertTitle>
                   <AlertDescription className="text-primary/80">
-                    Product Variants, Images, Specifications, and Price Tiers sections below are currently UI placeholders.
-                    They are not yet connected to the backend API for creating the basic product. This will be handled in a future update.
+                    Product Variants, Images, Specifications, and Price Tiers will be created along with the main product.
                   </AlertDescription>
               </Alert>
 
               {/* Product Variants Section */}
-              <Card className="shadow-md opacity-50 pointer-events-none">
+              <Card className="shadow-md">
                 <CardHeader>
                   <CardTitle className="font-headline flex items-center"><ListPlus className="mr-2 h-5 w-5 text-primary"/>Product Variants</CardTitle>
                   <CardDescription>Define different versions of your product (e.g., by size, color). Each variant can have its own SKU and price adjustment.</CardDescription>
@@ -614,7 +722,7 @@ export default function AddNewProductPage() {
               </Card>
 
               {/* Product Images Section */}
-              <Card className="shadow-md opacity-50 pointer-events-none">
+              <Card className="shadow-md">
                 <CardHeader>
                   <CardTitle className="font-headline flex items-center"><ImagePlus className="mr-2 h-5 w-5 text-primary"/>Product Images</CardTitle>
                   <CardDescription>Add image URLs for your product. Mark one as primary. (Actual file upload coming soon)</CardDescription>
@@ -686,7 +794,7 @@ export default function AddNewProductPage() {
               </Card>
 
               {/* Product Specifications Section */}
-              <Card className="shadow-md opacity-50 pointer-events-none">
+              <Card className="shadow-md">
                 <CardHeader>
                   <CardTitle className="font-headline flex items-center"><Tags className="mr-2 h-5 w-5 text-primary"/>Product Specifications</CardTitle>
                   <CardDescription>Add key-value pairs for product specifications (e.g., Material: Steel, Voltage: 220V).</CardDescription>
@@ -759,7 +867,7 @@ export default function AddNewProductPage() {
               </Card>
 
               {/* Price Tiers Section */}
-              <Card className="shadow-md opacity-50 pointer-events-none">
+              <Card className="shadow-md">
                 <CardHeader>
                   <CardTitle className="font-headline flex items-center"><DollarSign className="mr-2 h-5 w-5 text-primary"/>Price Tiers</CardTitle>
                   <CardDescription>Set up volume-based pricing. Offer discounts for larger quantities.</CardDescription>
@@ -860,3 +968,4 @@ export default function AddNewProductPage() {
     </SidebarProvider>
   );
 }
+
