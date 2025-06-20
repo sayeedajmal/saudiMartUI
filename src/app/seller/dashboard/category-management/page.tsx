@@ -23,6 +23,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { CreateCategoryForm } from "@/components/features/seller/create-category-form";
+import { EditCategoryForm } from "@/components/features/seller/edit-category-form"; // Import new form
 import { selectAccessToken } from '@/lib/redux/slices/userSlice';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -33,9 +34,9 @@ export interface SellerCategory {
   name: string;
   description: string | null;
   isActive: boolean;
-  parentCategory: { id: number; name: string; } | null;
-  childCategories: { id: number; name: string; }[];
-  createdAt?: string;
+  parentCategory: { id: number; name: string; } | null; // Simplified for display
+  childCategories: { id: number; name: string; }[]; // Simplified for display
+  createdAt?: string; // Assuming createdAt is a string like "2024-07-29T10:00:00.000+00:00"
 }
 
 
@@ -58,7 +59,7 @@ export default function SellerCategoryManagementPage() {
     if (!accessToken) {
       toast({ variant: "destructive", title: "Authentication Error", description: "Please log in to view categories."});
       setIsLoading(false);
-      setCategories([]);
+      setCategories([]); // Clear categories if not authenticated
       return;
     }
 
@@ -75,7 +76,6 @@ export default function SellerCategoryManagementPage() {
         throw new Error(responseData.message || 'Failed to fetch categories');
       }
       
-      // Assuming responseData.data contains the array of categories
       const fetchedCategories: SellerCategory[] = responseData.data.map((cat: any) => ({
         id: cat.id,
         name: cat.name,
@@ -88,7 +88,7 @@ export default function SellerCategoryManagementPage() {
       setCategories(fetchedCategories);
     } catch (err: any) {
       setError(err.message || "An unexpected error occurred while fetching categories.");
-      setCategories([]);
+      setCategories([]); // Clear categories on error
       toast({
         variant: "destructive",
         title: "Error fetching categories",
@@ -106,7 +106,6 @@ export default function SellerCategoryManagementPage() {
   const handleEdit = (category: SellerCategory) => {
     setSelectedCategoryToEdit(category);
     setIsEditModalOpen(true);
-    toast({ title: "Edit Clicked (Not Fully Implemented)", description: `Editing: ${category.name}. API for PUT /categories/${category.id} would be used.` });
   };
 
   const handleDelete = (category: SellerCategory) => {
@@ -135,7 +134,7 @@ export default function SellerCategoryManagementPage() {
       }
 
       toast({ title: "Category Deleted", description: responseData.message || `${categoryToDelete.name} has been deleted.` });
-      setCategories(prev => prev.filter(c => c.id !== categoryToDelete!.id));
+      fetchSellerCategories(); // Refresh list after delete
     } catch (err: any) {
       toast({
         variant: "destructive",
@@ -254,10 +253,10 @@ export default function SellerCategoryManagementPage() {
                 <CardDescription>Manage categories for your products. (Note: Currently displays all system categories)</CardDescription>
               </div>
               <div className="flex gap-2">
-                <Button onClick={fetchSellerCategories} variant="outline" disabled={isLoading}>
+                <Button onClick={fetchSellerCategories} variant="outline" disabled={isLoading || isDeleting}>
                   <RefreshCw className={`mr-2 h-4 w-4 ${isLoading && !isDeleting ? 'animate-spin' : ''}`} /> Refresh
                 </Button>
-                <Button onClick={() => setIsCreateModalOpen(true)} className="bg-accent text-accent-foreground hover:bg-accent/90">
+                <Button onClick={() => setIsCreateModalOpen(true)} className="bg-accent text-accent-foreground hover:bg-accent/90" disabled={isLoading || isDeleting}>
                   <PlusCircle className="mr-2 h-4 w-4" /> Add New Category
                 </Button>
               </div>
@@ -335,19 +334,31 @@ export default function SellerCategoryManagementPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+      <Dialog open={isEditModalOpen} onOpenChange={(isOpen) => {
+        setIsEditModalOpen(isOpen);
+        if (!isOpen) setSelectedCategoryToEdit(null); // Clear selected on close
+      }}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle className="font-headline">Edit Category: {selectedCategoryToEdit?.name}</DialogTitle>
+            <DialogTitle className="font-headline flex items-center"><Edit3 className="mr-2 h-5 w-5 text-primary"/>Edit Category: {selectedCategoryToEdit?.name}</DialogTitle>
             <DialogDescription>
-              Update the details for this category. (Edit form and API integration not yet fully implemented)
+              Update the details for this category.
             </DialogDescription>
           </DialogHeader>
-          <p className="py-4 text-center text-muted-foreground">(Full Edit form for name, description, isActive, parentCategory will go here. PUT /categories/{selectedCategoryToEdit?.id} )</p>
-           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>Cancel</Button>
-            <Button className="bg-accent text-accent-foreground hover:bg-accent/90" disabled>Save Changes (NI)</Button>
-          </DialogFooter>
+          {selectedCategoryToEdit && (
+            <EditCategoryForm
+              initialData={selectedCategoryToEdit}
+              onSuccess={() => {
+                setIsEditModalOpen(false);
+                setSelectedCategoryToEdit(null);
+                fetchSellerCategories();
+              }}
+              onCancel={() => {
+                setIsEditModalOpen(false);
+                setSelectedCategoryToEdit(null);
+              }}
+            />
+          )}
         </DialogContent>
       </Dialog>
 
@@ -361,7 +372,7 @@ export default function SellerCategoryManagementPage() {
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => setCategoryToDelete(null)}>Cancel</AlertDialogCancel>
+              <AlertDialogCancel onClick={() => setCategoryToDelete(null)} disabled={isDeleting}>Cancel</AlertDialogCancel>
               <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={isDeleting}>
                  {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                 Yes, Delete Category
