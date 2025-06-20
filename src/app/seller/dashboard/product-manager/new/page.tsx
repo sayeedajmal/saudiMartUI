@@ -51,14 +51,18 @@ interface FetchedCategory {
 const productVariantSchema = z.object({
   sku: z.string().min(1, "Variant SKU is required").max(50),
   variant_name: z.string().optional(),
-  additional_price: z.coerce.number({invalid_type_error: "Additional price must be a number"}).optional(),
+  additional_price: z.preprocess((val) => (val === "" || val === null ? undefined : val),
+    z.coerce.number({invalid_type_error: "Additional price must be a number"}).optional()
+  ),
   available: z.boolean().default(true),
 });
 
 const productImageSchema = z.object({
   image_url: z.string().url({ message: "Please enter a valid URL for the image." }),
   alt_text: z.string().optional(),
-  display_order: z.coerce.number({invalid_type_error: "Display order must be a number"}).int().optional(),
+  display_order: z.preprocess((val) => (val === "" || val === null ? undefined : val),
+    z.coerce.number({invalid_type_error: "Display order must be a number"}).int().optional()
+  ),
   is_primary: z.boolean().default(false),
 });
 
@@ -66,13 +70,17 @@ const productSpecificationSchema = z.object({
   spec_name: z.string().min(1, "Specification name is required"),
   spec_value: z.string().min(1, "Specification value is required"),
   unit: z.string().optional(),
-  display_order: z.coerce.number({invalid_type_error: "Display order must be a number"}).int().optional(),
+  display_order: z.preprocess((val) => (val === "" || val === null ? undefined : val),
+    z.coerce.number({invalid_type_error: "Display order must be a number"}).int().optional()
+  ),
 });
 
 const priceTierSchema = z.object({
-  min_quantity: z.coerce.number({invalid_type_error: "Min quantity must be a number"}).int().min(1, "Min quantity must be at least 1"),
-  max_quantity: z.coerce.number({invalid_type_error: "Max quantity must be a number"}).int().optional().nullable().transform(val => val === null || val === '' ? undefined : val),
-  price_per_unit: z.coerce.number({invalid_type_error: "Price must be a number"}).positive("Price must be positive"),
+  min_quantity: z.coerce.number({invalid_type_error: "Min quantity must be a number", required_error: "Min quantity is required"}).int().min(1, "Min quantity must be at least 1"),
+  max_quantity: z.preprocess((val) => (val === "" || val === null ? undefined : val),
+    z.coerce.number({invalid_type_error: "Max quantity must be a number"}).int().optional().nullable()
+  ),
+  price_per_unit: z.coerce.number({invalid_type_error: "Price must be a number", required_error: "Price per unit is required"}).positive("Price must be positive"),
   is_active: z.boolean().default(true),
 });
 
@@ -81,10 +89,16 @@ const productSchema = z.object({
   name: z.string().min(3, "Product name must be at least 3 characters").max(255),
   description: z.string().min(10, "Description must be at least 10 characters").max(5000).optional().nullable(),
   category_id: z.string().min(1, "Please select a category"),
-  basePrice: z.coerce.number({invalid_type_error: "Base price must be a number"}).positive("Price must be a positive number").optional(),
+  basePrice: z.preprocess((val) => (val === "" || val === null ? undefined : val),
+    z.coerce.number({invalid_type_error: "Base price must be a number"})
+      .positive({ message: "Base price must be a positive number" })
+      .optional()
+  ),
   isBulkOnly: z.boolean().default(false),
   minimumOrderQuantity: z.coerce.number({invalid_type_error: "MOQ must be a number"}).int().min(1, "MOQ must be at least 1").default(1),
-  weight: z.coerce.number({invalid_type_error: "Weight must be a number"}).optional(),
+  weight: z.preprocess((val) => (val === "" || val === null ? undefined : val),
+    z.coerce.number({invalid_type_error: "Weight must be a number"}).optional()
+  ),
   weightUnit: z.string().max(10).optional().nullable(),
   dimensions: z.string().max(50).optional().nullable(),
   sku: z.string().min(1, "SKU is required").max(50),
@@ -111,10 +125,10 @@ export default function AddNewProductPage() {
       name: "",
       description: "",
       category_id: "",
-      basePrice: undefined,
+      basePrice: '', // Changed from undefined
       isBulkOnly: false,
       minimumOrderQuantity: 1,
-      weight: undefined,
+      weight: '', // Changed from undefined
       weightUnit: "",
       dimensions: "",
       sku: "",
@@ -128,7 +142,6 @@ export default function AddNewProductPage() {
 
   const fetchCategories = useCallback(async () => {
     if (!accessToken) {
-      // toast({ variant: "destructive", title: "Authentication Error", description: "Cannot fetch categories. Please log in." });
       return;
     }
     setIsLoadingCategories(true);
@@ -189,16 +202,16 @@ export default function AddNewProductPage() {
     const mainProductApiPayload = {
       name: values.name,
       description: values.description || null,
-      category: values.category_id ? { id: parseInt(values.category_id, 10) } : null, // Category ID is still Long in backend
-      basePrice: values.basePrice,
+      category: values.category_id ? { id: parseInt(values.category_id, 10) } : null,
+      basePrice: values.basePrice, // Will be number or undefined due to Zod preprocess/coerce
       isBulkOnly: values.isBulkOnly,
       minimumOrderQuantity: values.minimumOrderQuantity,
-      weight: values.weight,
+      weight: values.weight, // Will be number or undefined
       weightUnit: values.weightUnit || null,
       dimensions: values.dimensions || null,
       sku: values.sku,
       available: values.available,
-      seller: { id: currentUser.id } // Sending seller ID as string
+      seller: { id: currentUser.id } 
     };
     
     let newlyCreatedProductId: number | null = null;
@@ -241,7 +254,6 @@ export default function AddNewProductPage() {
     if (newlyCreatedProductId) {
       const subEntityPromises = [];
 
-      // Variants
       if (values.variants && values.variants.length > 0) {
         for (const variant of values.variants) {
           const variantPayload = {
@@ -258,13 +270,16 @@ export default function AddNewProductPage() {
               body: JSON.stringify(variantPayload),
             }).then(async res => {
                 const data = await res.json();
-                return { type: 'Variant', name: variant.sku, success: res.ok && (res.status === 201 || res.status === 200) && data.statusCode !== 400 && data.statusCode !== 500, data };
+                 if (!res.ok || (data.statusCode && data.statusCode >= 400)) {
+                   const errorMsg = data.message || (data.errors && data.errors.map((e:any) => e.defaultMessage || e.message).join(', ')) || `Variant creation failed (Status: ${res.status})`;
+                   return { type: 'Variant', name: variant.sku, success: false, error: errorMsg, data };
+                 }
+                return { type: 'Variant', name: variant.sku, success: true, data };
             }).catch(err => ({ type: 'Variant', name: variant.sku, success: false, error: err.message }))
           );
         }
       }
 
-      // Images
       if (values.images && values.images.length > 0) {
         for (const image of values.images) {
           const imagePayload = {
@@ -281,13 +296,16 @@ export default function AddNewProductPage() {
               body: JSON.stringify(imagePayload),
             }).then(async res => {
                 const data = await res.json();
-                return { type: 'Image', name: image.alt_text || `Image ${image.display_order || ''}`, success: res.ok && (res.status === 201 || res.status === 200) && data.statusCode !== 400 && data.statusCode !== 500, data };
+                if (!res.ok || (data.statusCode && data.statusCode >= 400)) {
+                  const errorMsg = data.message || (data.errors && data.errors.map((e:any) => e.defaultMessage || e.message).join(', ')) || `Image creation failed (Status: ${res.status})`;
+                  return { type: 'Image', name: image.alt_text || `Image ${image.display_order || ''}`, success: false, error: errorMsg, data };
+                }
+                return { type: 'Image', name: image.alt_text || `Image ${image.display_order || ''}`, success: true, data };
             }).catch(err => ({ type: 'Image', name: image.alt_text || `Image ${image.display_order || ''}`, success: false, error: err.message }))
           );
         }
       }
       
-      // Specifications
       if (values.specifications && values.specifications.length > 0) {
         for (const spec of values.specifications) {
           const specPayload = {
@@ -304,13 +322,16 @@ export default function AddNewProductPage() {
               body: JSON.stringify(specPayload),
             }).then(async res => {
                 const data = await res.json();
-                return { type: 'Specification', name: spec.spec_name, success: res.ok && (res.status === 201 || res.status === 200) && data.statusCode !== 400 && data.statusCode !== 500, data };
+                if (!res.ok || (data.statusCode && data.statusCode >= 400)) {
+                  const errorMsg = data.message || (data.errors && data.errors.map((e:any) => e.defaultMessage || e.message).join(', ')) || `Specification creation failed (Status: ${res.status})`;
+                  return { type: 'Specification', name: spec.spec_name, success: false, error: errorMsg, data };
+                }
+                return { type: 'Specification', name: spec.spec_name, success: true, data };
             }).catch(err => ({ type: 'Specification', name: spec.spec_name, success: false, error: err.message }))
           );
         }
       }
 
-      // Price Tiers
       if (values.priceTiers && values.priceTiers.length > 0) {
         for (const tier of values.priceTiers) {
           const tierPayload = {
@@ -327,7 +348,11 @@ export default function AddNewProductPage() {
               body: JSON.stringify(tierPayload),
             }).then(async res => {
                 const data = await res.json();
-                return { type: 'Price Tier', name: `Tier (Min Qty: ${tier.min_quantity})`, success: res.ok && (res.status === 201 || res.status === 200) && data.statusCode !== 400 && data.statusCode !== 500, data };
+                 if (!res.ok || (data.statusCode && data.statusCode >= 400)) {
+                  const errorMsg = data.message || (data.errors && data.errors.map((e:any) => e.defaultMessage || e.message).join(', ')) || `Price Tier creation failed (Status: ${res.status})`;
+                  return { type: 'Price Tier', name: `Tier (Min Qty: ${tier.min_quantity})`, success: false, error: errorMsg, data };
+                }
+                return { type: 'Price Tier', name: `Tier (Min Qty: ${tier.min_quantity})`, success: true, data };
             }).catch(err => ({ type: 'Price Tier', name: `Tier (Min Qty: ${tier.min_quantity})`, success: false, error: err.message }))
           );
         }
@@ -342,8 +367,7 @@ export default function AddNewProductPage() {
             toast({ title: `${type} Added`, description: `${name} details saved successfully.` });
           } else {
             allSubEntitiesSuccessful = false;
-            const errorMessage = data?.message || (data?.errors && data.errors.map((e:any) => e.defaultMessage || e.message).join(', ')) || error || 'Unknown error';
-            toast({ variant: "destructive", title: `Error Adding ${type}`, description: `Failed to save ${name}: ${errorMessage}` });
+            toast({ variant: "destructive", title: `Error Adding ${type}`, description: `Failed to save ${name}: ${error}` });
           }
         } else if (result.status === 'rejected') {
           allSubEntitiesSuccessful = false;
@@ -565,7 +589,8 @@ export default function AddNewProductPage() {
                         <FormLabel>Base Price (per unit)</FormLabel>
                         <FormControl>
                           <Input type="number" step="0.01" placeholder="0.00" {...field} 
-                                 onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} />
+                                 value={field.value ?? ''}
+                                 onChange={e => field.onChange(e.target.value)} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -621,7 +646,8 @@ export default function AddNewProductPage() {
                         <FormLabel>Weight</FormLabel>
                         <FormControl>
                           <Input type="number" step="any" placeholder="e.g., 5.5" {...field}  
-                                 onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} />
+                                 value={field.value ?? ''}
+                                 onChange={e => field.onChange(e.target.value)} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -732,7 +758,8 @@ export default function AddNewProductPage() {
                             <FormItem>
                               <FormLabel>Additional Price (Optional)</FormLabel>
                               <FormControl><Input type="number" step="0.01" placeholder="0.00" {...field} 
-                                                   onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} /></FormControl>
+                                                   value={field.value ?? ''}
+                                                   onChange={e => field.onChange(e.target.value)} /></FormControl>
                               <FormMessage />
                             </FormItem>
                           )}
@@ -758,7 +785,7 @@ export default function AddNewProductPage() {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => appendVariant({ sku: '', variant_name: '', additional_price: undefined, available: true })}
+                    onClick={() => appendVariant({ sku: '', variant_name: '', additional_price: '', available: true })}
                   >
                     <PlusCircle className="mr-2 h-4 w-4" /> Add Variant
                   </Button>
@@ -804,7 +831,8 @@ export default function AddNewProductPage() {
                             <FormItem>
                               <FormLabel>Display Order (Optional)</FormLabel>
                               <FormControl><Input type="number" placeholder="0" {...field} 
-                                                   onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value,10))}/></FormControl>
+                                                   value={field.value ?? ''}
+                                                   onChange={e => field.onChange(e.target.value)}/></FormControl>
                               <FormMessage />
                             </FormItem>
                           )}
@@ -830,7 +858,7 @@ export default function AddNewProductPage() {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => appendImage({ image_url: '', alt_text: '', display_order: undefined, is_primary: imageFields.length === 0 })}
+                    onClick={() => appendImage({ image_url: '', alt_text: '', display_order: '', is_primary: imageFields.length === 0 })}
                   >
                     <PlusCircle className="mr-2 h-4 w-4" /> Add Image URL
                   </Button>
@@ -887,7 +915,8 @@ export default function AddNewProductPage() {
                             <FormItem>
                               <FormLabel>Display Order (Optional)</FormLabel>
                               <FormControl><Input type="number" placeholder="0" {...field}  
-                                                   onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value,10))} /></FormControl>
+                                                   value={field.value ?? ''}
+                                                   onChange={e => field.onChange(e.target.value)} /></FormControl>
                               <FormMessage />
                             </FormItem>
                           )}
@@ -903,7 +932,7 @@ export default function AddNewProductPage() {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => appendSpec({ spec_name: '', spec_value: '', unit: '', display_order: undefined })}
+                    onClick={() => appendSpec({ spec_name: '', spec_value: '', unit: '', display_order: '' })}
                   >
                     <PlusCircle className="mr-2 h-4 w-4" /> Add Specification
                   </Button>
@@ -927,7 +956,8 @@ export default function AddNewProductPage() {
                             <FormItem>
                               <FormLabel>Min Quantity</FormLabel>
                               <FormControl><Input type="number" placeholder="1" {...field} 
-                                                   onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value,10))} /></FormControl>
+                                                   value={field.value ?? ''}
+                                                   onChange={e => field.onChange(e.target.value)} /></FormControl>
                               <FormMessage />
                             </FormItem>
                           )}
@@ -939,7 +969,8 @@ export default function AddNewProductPage() {
                             <FormItem>
                               <FormLabel>Max Quantity (Optional)</FormLabel>
                               <FormControl><Input type="number" placeholder="e.g., 50" {...field}  
-                                                   onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value,10))} /></FormControl>
+                                                   value={field.value ?? ''}
+                                                   onChange={e => field.onChange(e.target.value)} /></FormControl>
                               <FormMessage />
                             </FormItem>
                           )}
@@ -951,7 +982,8 @@ export default function AddNewProductPage() {
                             <FormItem>
                               <FormLabel>Price Per Unit</FormLabel>
                               <FormControl><Input type="number" step="0.01" placeholder="0.00" {...field} 
-                                                   onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} /></FormControl>
+                                                   value={field.value ?? ''}
+                                                   onChange={e => field.onChange(e.target.value)} /></FormControl>
                               <FormMessage />
                             </FormItem>
                           )}
@@ -977,7 +1009,7 @@ export default function AddNewProductPage() {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => appendTier({ min_quantity: undefined, max_quantity: undefined, price_per_unit: undefined, is_active: true })}
+                    onClick={() => appendTier({ min_quantity: '', max_quantity: '', price_per_unit: '', is_active: true })}
                   >
                     <PlusCircle className="mr-2 h-4 w-4" /> Add Price Tier
                   </Button>
@@ -988,8 +1020,8 @@ export default function AddNewProductPage() {
               
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={() => form.reset({ 
-                    name: "", description: "", category_id: "", basePrice: undefined, isBulkOnly: false, minimumOrderQuantity: 1,
-                    weight: undefined, weightUnit: "", dimensions: "", sku: "", available: true,
+                    name: "", description: "", category_id: "", basePrice: '', isBulkOnly: false, minimumOrderQuantity: 1,
+                    weight: '', weightUnit: "", dimensions: "", sku: "", available: true,
                     variants: [], images: [], specifications: [], priceTiers: [],
                 })} disabled={isSubmitting}>
                   Reset Form
