@@ -150,7 +150,7 @@ export default function AddNewProductPage() {
   }, [accessToken, toast]);
 
   useEffect(() => {
-    if (accessToken) { // Fetch categories only if token exists
+    if (accessToken) { 
         fetchCategories();
     }
   }, [accessToken, fetchCategories]);
@@ -189,7 +189,7 @@ export default function AddNewProductPage() {
     const mainProductApiPayload = {
       name: values.name,
       description: values.description || null,
-      category: values.category_id ? { id: parseInt(values.category_id, 10) } : null,
+      category: values.category_id ? { id: parseInt(values.category_id, 10) } : null, // Category ID is still Long in backend
       basePrice: values.basePrice,
       isBulkOnly: values.isBulkOnly,
       minimumOrderQuantity: values.minimumOrderQuantity,
@@ -198,7 +198,7 @@ export default function AddNewProductPage() {
       dimensions: values.dimensions || null,
       sku: values.sku,
       available: values.available,
-      seller: { id: parseInt(currentUser.id, 10) } // Include seller ID
+      seller: { id: currentUser.id } // Sending seller ID as string
     };
     
     let newlyCreatedProductId: number | null = null;
@@ -246,8 +246,8 @@ export default function AddNewProductPage() {
         for (const variant of values.variants) {
           const variantPayload = {
             sku: variant.sku,
-            variantName: variant.variant_name || null, // Backend might expect `variantName`
-            additionalPrice: variant.additional_price, // Backend might expect `additionalPrice`
+            variantName: variant.variant_name || null, 
+            additionalPrice: variant.additional_price, 
             available: variant.available,
             product: { id: newlyCreatedProductId }
           };
@@ -268,10 +268,10 @@ export default function AddNewProductPage() {
       if (values.images && values.images.length > 0) {
         for (const image of values.images) {
           const imagePayload = {
-            imageUrl: image.image_url, // Backend might expect `imageUrl`
-            altText: image.alt_text || null, // Backend might expect `altText`
-            displayOrder: image.display_order, // Backend might expect `displayOrder`
-            isPrimary: image.is_primary, // Backend might expect `isPrimary`
+            imageUrl: image.image_url, 
+            altText: image.alt_text || null, 
+            displayOrder: image.display_order, 
+            isPrimary: image.is_primary, 
             product: { id: newlyCreatedProductId }
           };
           subEntityPromises.push(
@@ -291,10 +291,10 @@ export default function AddNewProductPage() {
       if (values.specifications && values.specifications.length > 0) {
         for (const spec of values.specifications) {
           const specPayload = {
-            specName: spec.spec_name, // Backend might expect `specName`
-            specValue: spec.spec_value, // Backend might expect `specValue`
+            specName: spec.spec_name, 
+            specValue: spec.spec_value, 
             unit: spec.unit || null,
-            displayOrder: spec.display_order, // Backend might expect `displayOrder`
+            displayOrder: spec.display_order, 
             product: { id: newlyCreatedProductId }
           };
           subEntityPromises.push(
@@ -314,10 +314,10 @@ export default function AddNewProductPage() {
       if (values.priceTiers && values.priceTiers.length > 0) {
         for (const tier of values.priceTiers) {
           const tierPayload = {
-            minQuantity: tier.min_quantity, // Backend might expect `minQuantity`
-            maxQuantity: tier.max_quantity, // Backend might expect `maxQuantity`
-            pricePerUnit: tier.price_per_unit, // Backend might expect `pricePerUnit`
-            isActive: tier.is_active, // Backend might expect `isActive`
+            minQuantity: tier.min_quantity, 
+            maxQuantity: tier.max_quantity, 
+            pricePerUnit: tier.price_per_unit, 
+            isActive: tier.is_active, 
             product: { id: newlyCreatedProductId }
           };
           subEntityPromises.push(
