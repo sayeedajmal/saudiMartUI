@@ -40,7 +40,7 @@ import { Loader2 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { useSelector } from 'react-redux';
-import { selectAccessToken } from '@/lib/redux/slices/userSlice';
+import { selectAccessToken, selectUser, type MyProfile } from '@/lib/redux/slices/userSlice';
 
 interface FetchedCategory {
   id: number;
@@ -101,6 +101,7 @@ export default function AddNewProductPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
   const accessToken = useSelector(selectAccessToken);
+  const currentUser = useSelector(selectUser) as MyProfile | null;
   const [categories, setCategories] = useState<FetchedCategory[]>([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(false);
 
@@ -149,8 +150,10 @@ export default function AddNewProductPage() {
   }, [accessToken, toast]);
 
   useEffect(() => {
-    fetchCategories();
-  }, [fetchCategories]);
+    if (accessToken) { // Fetch categories only if token exists
+        fetchCategories();
+    }
+  }, [accessToken, fetchCategories]);
 
 
   const { fields: variantFields, append: appendVariant, remove: removeVariant } = useFieldArray({
@@ -173,11 +176,11 @@ export default function AddNewProductPage() {
  const onSubmit = async (values: ProductFormValues) => {
     setIsSubmitting(true);
 
-    if (!accessToken) {
+    if (!accessToken || !currentUser?.id) {
       toast({
         variant: "destructive",
         title: "Authentication Error",
-        description: "You are not logged in. Please log in to add a product.",
+        description: "You are not logged in or user ID is missing. Please log in to add a product.",
       });
       setIsSubmitting(false);
       return;
@@ -195,6 +198,7 @@ export default function AddNewProductPage() {
       dimensions: values.dimensions || null,
       sku: values.sku,
       available: values.available,
+      seller: { id: parseInt(currentUser.id, 10) } // Include seller ID
     };
     
     let newlyCreatedProductId: number | null = null;
@@ -212,7 +216,7 @@ export default function AddNewProductPage() {
 
       const productResponseData = await productResponse.json();
 
-      if (!productResponse.ok || productResponseData.statusCode !== 200 && productResponse.status !== 201) {
+      if (!productResponse.ok || (productResponseData.statusCode !== 200 && productResponse.status !== 201 && productResponseData.statusCode !== 201)) {
         const serverMessage = productResponseData.message || (productResponseData.errors && productResponseData.errors.map((e: any) => e.defaultMessage || e.message).join(', ')) || `Failed to create product. Status: ${productResponse.status}`;
         throw new Error(serverMessage);
       }
@@ -242,8 +246,8 @@ export default function AddNewProductPage() {
         for (const variant of values.variants) {
           const variantPayload = {
             sku: variant.sku,
-            variantName: variant.variant_name || null,
-            additionalPrice: variant.additional_price,
+            variantName: variant.variant_name || null, // Backend might expect `variantName`
+            additionalPrice: variant.additional_price, // Backend might expect `additionalPrice`
             available: variant.available,
             product: { id: newlyCreatedProductId }
           };
@@ -254,7 +258,7 @@ export default function AddNewProductPage() {
               body: JSON.stringify(variantPayload),
             }).then(async res => {
                 const data = await res.json();
-                return { type: 'Variant', name: variant.sku, success: res.ok && (res.status === 201 || res.status === 200) && data.statusCode !== 400, data };
+                return { type: 'Variant', name: variant.sku, success: res.ok && (res.status === 201 || res.status === 200) && data.statusCode !== 400 && data.statusCode !== 500, data };
             }).catch(err => ({ type: 'Variant', name: variant.sku, success: false, error: err.message }))
           );
         }
@@ -264,10 +268,10 @@ export default function AddNewProductPage() {
       if (values.images && values.images.length > 0) {
         for (const image of values.images) {
           const imagePayload = {
-            imageUrl: image.image_url,
-            altText: image.alt_text || null,
-            displayOrder: image.display_order,
-            isPrimary: image.is_primary,
+            imageUrl: image.image_url, // Backend might expect `imageUrl`
+            altText: image.alt_text || null, // Backend might expect `altText`
+            displayOrder: image.display_order, // Backend might expect `displayOrder`
+            isPrimary: image.is_primary, // Backend might expect `isPrimary`
             product: { id: newlyCreatedProductId }
           };
           subEntityPromises.push(
@@ -277,7 +281,7 @@ export default function AddNewProductPage() {
               body: JSON.stringify(imagePayload),
             }).then(async res => {
                 const data = await res.json();
-                return { type: 'Image', name: image.alt_text || `Image ${image.display_order || ''}`, success: res.ok && (res.status === 201 || res.status === 200) && data.statusCode !== 400, data };
+                return { type: 'Image', name: image.alt_text || `Image ${image.display_order || ''}`, success: res.ok && (res.status === 201 || res.status === 200) && data.statusCode !== 400 && data.statusCode !== 500, data };
             }).catch(err => ({ type: 'Image', name: image.alt_text || `Image ${image.display_order || ''}`, success: false, error: err.message }))
           );
         }
@@ -287,10 +291,10 @@ export default function AddNewProductPage() {
       if (values.specifications && values.specifications.length > 0) {
         for (const spec of values.specifications) {
           const specPayload = {
-            specName: spec.spec_name,
-            specValue: spec.spec_value,
+            specName: spec.spec_name, // Backend might expect `specName`
+            specValue: spec.spec_value, // Backend might expect `specValue`
             unit: spec.unit || null,
-            displayOrder: spec.display_order,
+            displayOrder: spec.display_order, // Backend might expect `displayOrder`
             product: { id: newlyCreatedProductId }
           };
           subEntityPromises.push(
@@ -300,7 +304,7 @@ export default function AddNewProductPage() {
               body: JSON.stringify(specPayload),
             }).then(async res => {
                 const data = await res.json();
-                return { type: 'Specification', name: spec.spec_name, success: res.ok && (res.status === 201 || res.status === 200) && data.statusCode !== 400, data };
+                return { type: 'Specification', name: spec.spec_name, success: res.ok && (res.status === 201 || res.status === 200) && data.statusCode !== 400 && data.statusCode !== 500, data };
             }).catch(err => ({ type: 'Specification', name: spec.spec_name, success: false, error: err.message }))
           );
         }
@@ -310,10 +314,10 @@ export default function AddNewProductPage() {
       if (values.priceTiers && values.priceTiers.length > 0) {
         for (const tier of values.priceTiers) {
           const tierPayload = {
-            minQuantity: tier.min_quantity,
-            maxQuantity: tier.max_quantity,
-            pricePerUnit: tier.price_per_unit,
-            isActive: tier.is_active,
+            minQuantity: tier.min_quantity, // Backend might expect `minQuantity`
+            maxQuantity: tier.max_quantity, // Backend might expect `maxQuantity`
+            pricePerUnit: tier.price_per_unit, // Backend might expect `pricePerUnit`
+            isActive: tier.is_active, // Backend might expect `isActive`
             product: { id: newlyCreatedProductId }
           };
           subEntityPromises.push(
@@ -323,7 +327,7 @@ export default function AddNewProductPage() {
               body: JSON.stringify(tierPayload),
             }).then(async res => {
                 const data = await res.json();
-                return { type: 'Price Tier', name: `Tier (Min Qty: ${tier.min_quantity})`, success: res.ok && (res.status === 201 || res.status === 200) && data.statusCode !== 400, data };
+                return { type: 'Price Tier', name: `Tier (Min Qty: ${tier.min_quantity})`, success: res.ok && (res.status === 201 || res.status === 200) && data.statusCode !== 400 && data.statusCode !== 500, data };
             }).catch(err => ({ type: 'Price Tier', name: `Tier (Min Qty: ${tier.min_quantity})`, success: false, error: err.message }))
           );
         }
