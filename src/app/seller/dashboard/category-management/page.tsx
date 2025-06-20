@@ -15,28 +15,29 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { BotMessageSquare, LayoutDashboard, ShoppingBag, BarChart3, Settings, MessageSquare, Package, Warehouse, Truck, Bell, Shapes, PlusCircle, Edit3, Trash2, Loader2, Boxes, FileText, RefreshCw } from "lucide-react";
+import { BotMessageSquare, LayoutDashboard, ShoppingBag, BarChart3, Settings, MessageSquare, Package, Warehouse, Truck, Bell, Shapes, PlusCircle, Edit3, Trash2, Loader2, Boxes, FileText, RefreshCw, Search, FilterIcon, XCircle } from "lucide-react";
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { CreateCategoryForm } from "@/components/features/seller/create-category-form";
-import { EditCategoryForm } from "@/components/features/seller/edit-category-form"; // Import new form
+import { EditCategoryForm } from "@/components/features/seller/edit-category-form";
 import { selectAccessToken } from '@/lib/redux/slices/userSlice';
 import { useToast } from '@/hooks/use-toast';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
-// Aligned with backend Category.java
 export interface SellerCategory {
   id: number;
   name: string;
   description: string | null;
   isActive: boolean;
-  parentCategory: { id: number; name: string; } | null; // Simplified for display
-  childCategories: { id: number; name: string; }[]; // Simplified for display
-  createdAt?: string; // Assuming createdAt is a string like "2024-07-29T10:00:00.000+00:00"
+  parentCategory: { id: number; name: string; } | null;
+  childCategories: { id: number; name: string; }[];
+  createdAt?: string;
 }
 
 
@@ -50,21 +51,40 @@ export default function SellerCategoryManagementPage() {
   const [selectedCategoryToEdit, setSelectedCategoryToEdit] = useState<SellerCategory | null>(null);
   const [categoryToDelete, setCategoryToDelete] = useState<SellerCategory | null>(null);
 
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+
+
   const accessToken = useSelector(selectAccessToken);
   const { toast } = useToast();
 
-  const fetchSellerCategories = useCallback(async () => {
+  const fetchSellerCategories = useCallback(async (currentSearchTerm = searchTerm, currentStatusFilter = statusFilter) => {
     setIsLoading(true);
     setError(null);
     if (!accessToken) {
       toast({ variant: "destructive", title: "Authentication Error", description: "Please log in to view categories."});
       setIsLoading(false);
-      setCategories([]); // Clear categories if not authenticated
+      setCategories([]);
       return;
     }
 
+    let url = 'http://localhost:8080/categories';
+    const params = new URLSearchParams();
+
+    if (currentSearchTerm.trim() !== '') {
+      params.append('name', currentSearchTerm.trim());
+    }
+    if (currentStatusFilter !== 'all') {
+      params.append('isActive', currentStatusFilter === 'active' ? 'true' : 'false');
+    }
+
+    const queryString = params.toString();
+    if (queryString) {
+      url += `?${queryString}`;
+    }
+
     try {
-      const response = await fetch('http://localhost:8080/categories', {
+      const response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
         },
@@ -73,7 +93,7 @@ export default function SellerCategoryManagementPage() {
       const responseData = await response.json();
 
       if (!response.ok) {
-        throw new Error(responseData.message || 'Failed to fetch categories');
+        throw new Error(responseData.message || `Failed to fetch categories. Status: ${response.status}`);
       }
       
       const fetchedCategories: SellerCategory[] = responseData.data.map((cat: any) => ({
@@ -86,9 +106,12 @@ export default function SellerCategoryManagementPage() {
         childCategories: cat.childCategories ? cat.childCategories.map((child: any) => ({ id: child.id, name: child.name })) : [],
       }));
       setCategories(fetchedCategories);
+      if (fetchedCategories.length === 0 && (currentSearchTerm || currentStatusFilter !== 'all')) {
+        toast({ title: "No Results", description: "No categories match your current filters." });
+      }
     } catch (err: any) {
       setError(err.message || "An unexpected error occurred while fetching categories.");
-      setCategories([]); // Clear categories on error
+      setCategories([]);
       toast({
         variant: "destructive",
         title: "Error fetching categories",
@@ -97,11 +120,22 @@ export default function SellerCategoryManagementPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [accessToken, toast]);
+  }, [accessToken, toast, searchTerm, statusFilter]); // Include searchTerm and statusFilter as dependencies if they are directly used
 
   useEffect(() => {
     fetchSellerCategories();
-  }, [fetchSellerCategories]);
+  }, [accessToken]); // Keep accessToken here for initial fetch on login/auth change
+
+
+  const handleFilterApply = () => {
+    fetchSellerCategories(searchTerm, statusFilter);
+  };
+
+  const handleClearFilters = () => {
+    setSearchTerm('');
+    setStatusFilter('all');
+    fetchSellerCategories('', 'all'); // Fetch with cleared filters
+  };
 
   const handleEdit = (category: SellerCategory) => {
     setSelectedCategoryToEdit(category);
@@ -134,7 +168,7 @@ export default function SellerCategoryManagementPage() {
       }
 
       toast({ title: "Category Deleted", description: responseData.message || `${categoryToDelete.name} has been deleted.` });
-      fetchSellerCategories(); // Refresh list after delete
+      fetchSellerCategories(); // Refresh list after delete with current filters
     } catch (err: any) {
       toast({
         variant: "destructive",
@@ -247,21 +281,61 @@ export default function SellerCategoryManagementPage() {
         </header>
         <main className="flex-1 p-6">
           <Card className="shadow-md">
-            <CardHeader className="flex flex-row justify-between items-center">
-              <div>
+            <CardHeader className="block md:flex md:flex-row justify-between items-center">
+              <div className="mb-4 md:mb-0">
                 <CardTitle className="font-headline">Product Categories</CardTitle>
                 <CardDescription>Manage categories for your products. (Note: Currently displays all system categories)</CardDescription>
               </div>
-              <div className="flex gap-2">
-                <Button onClick={fetchSellerCategories} variant="outline" disabled={isLoading || isDeleting}>
-                  <RefreshCw className={`mr-2 h-4 w-4 ${isLoading && !isDeleting ? 'animate-spin' : ''}`} /> Refresh
+              <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+                <Button onClick={() => fetchSellerCategories(searchTerm, statusFilter)} variant="outline" disabled={isLoading || isDeleting} className="w-full sm:w-auto">
+                  <RefreshCw className={`mr-2 h-4 w-4 ${isLoading && !isDeleting && !categoryToDelete ? 'animate-spin' : ''}`} /> Refresh
                 </Button>
-                <Button onClick={() => setIsCreateModalOpen(true)} className="bg-accent text-accent-foreground hover:bg-accent/90" disabled={isLoading || isDeleting}>
+                <Button onClick={() => setIsCreateModalOpen(true)} className="bg-accent text-accent-foreground hover:bg-accent/90 w-full sm:w-auto" disabled={isLoading || isDeleting}>
                   <PlusCircle className="mr-2 h-4 w-4" /> Add New Category
                 </Button>
               </div>
             </CardHeader>
             <CardContent>
+              <div className="mb-6 p-4 border rounded-lg bg-muted/50 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                  <div className="md:col-span-1">
+                    <label htmlFor="search-category" className="block text-sm font-medium text-foreground mb-1">Search by Name</label>
+                    <div className="relative">
+                      <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="search-category"
+                        type="search"
+                        placeholder="Search category name..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-9"
+                      />
+                    </div>
+                  </div>
+                  <div className="md:col-span-1">
+                    <label htmlFor="status-filter" className="block text-sm font-medium text-foreground mb-1">Filter by Status</label>
+                    <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as 'all' | 'active' | 'inactive')}>
+                      <SelectTrigger id="status-filter">
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Statuses</SelectItem>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="inactive">Inactive</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex gap-2 items-end md:col-span-1">
+                    <Button onClick={handleFilterApply} disabled={isLoading} className="w-full">
+                      <FilterIcon className="mr-2 h-4 w-4" /> Apply Filters
+                    </Button>
+                    <Button onClick={handleClearFilters} variant="outline" disabled={isLoading} className="w-full">
+                      <XCircle className="mr-2 h-4 w-4" /> Clear
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
               {isLoading && categories.length === 0 && ( 
                 <div className="flex justify-center items-center py-8">
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -272,7 +346,7 @@ export default function SellerCategoryManagementPage() {
                 <p className="text-destructive text-center py-8">{error}</p>
               )}
               {!isLoading && !error && categories.length === 0 && (
-                <p className="text-muted-foreground text-center py-8">No categories found. Add one to get started!</p>
+                <p className="text-muted-foreground text-center py-8">No categories found. Add one to get started or adjust your filters!</p>
               )}
               {!isLoading && !error && categories.length > 0 && (
                 <Table>
@@ -291,7 +365,7 @@ export default function SellerCategoryManagementPage() {
                         <TableCell className="font-medium">{category.name}</TableCell>
                         <TableCell className="text-sm text-muted-foreground max-w-xs truncate" title={category.description || ''}>{category.description || 'N/A'}</TableCell>
                         <TableCell>
-                          <Badge variant={category.isActive ? "default" : "secondary"}>
+                          <Badge variant={category.isActive ? "default" : "secondary"} className={category.isActive ? 'bg-green-500 hover:bg-green-600' : ''}>
                             {category.isActive ? "Active" : "Inactive"}
                           </Badge>
                         </TableCell>
@@ -327,7 +401,7 @@ export default function SellerCategoryManagementPage() {
           <CreateCategoryForm
             onSuccess={() => {
               setIsCreateModalOpen(false);
-              fetchSellerCategories(); 
+              fetchSellerCategories(searchTerm, statusFilter); // Fetch with current filters
             }}
             onCancel={() => setIsCreateModalOpen(false)}
           />
@@ -336,7 +410,7 @@ export default function SellerCategoryManagementPage() {
 
       <Dialog open={isEditModalOpen} onOpenChange={(isOpen) => {
         setIsEditModalOpen(isOpen);
-        if (!isOpen) setSelectedCategoryToEdit(null); // Clear selected on close
+        if (!isOpen) setSelectedCategoryToEdit(null);
       }}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
@@ -351,7 +425,7 @@ export default function SellerCategoryManagementPage() {
               onSuccess={() => {
                 setIsEditModalOpen(false);
                 setSelectedCategoryToEdit(null);
-                fetchSellerCategories();
+                fetchSellerCategories(searchTerm, statusFilter); // Fetch with current filters
               }}
               onCancel={() => {
                 setIsEditModalOpen(false);
