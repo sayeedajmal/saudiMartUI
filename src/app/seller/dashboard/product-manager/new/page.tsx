@@ -44,16 +44,16 @@ import { selectAccessToken } from '@/lib/redux/slices/userSlice';
 
 
 const DUMMY_SELLER_CATEGORIES = [
-  { id: "cat_seller_1", name: "My Custom Electronics" },
-  { id: "cat_seller_2", name: "Handmade Textiles" },
-  { id: "cat_seller_3", name: "Locally Sourced Spices (Inactive)" },
-  { id: "cat_example_1", name: "General Goods (from main list example)" }
+  { id: "1", name: "Electronics (Dummy ID 1)" }, // Assuming IDs are strings for now, adjust if numeric
+  { id: "2", name: "Textiles (Dummy ID 2)" },
+  { id: "3", name: "Spices (Dummy ID 3)" },
+  { id: "4", name: "General Goods (Dummy ID 4)" }
 ];
 
 const productVariantSchema = z.object({
   sku: z.string().min(1, "Variant SKU is required").max(50),
   variant_name: z.string().optional(),
-  additional_price: z.coerce.number({invalid_type_error: "Additional price must be a number"}).optional(), 
+  additional_price: z.coerce.number({invalid_type_error: "Additional price must be a number"}).optional(),
   available: z.boolean().default(true),
 });
 
@@ -81,14 +81,14 @@ const priceTierSchema = z.object({
 
 const productSchema = z.object({
   name: z.string().min(3, "Product name must be at least 3 characters").max(255),
-  description: z.string().min(10, "Description must be at least 10 characters").max(5000),
-  category_id: z.string().min(1, "Please select a category"),
-  base_price: z.coerce.number({invalid_type_error: "Base price must be a number"}).positive("Price must be a positive number").optional(),
-  is_bulk_only: z.boolean().default(false),
-  minimum_order_quantity: z.coerce.number({invalid_type_error: "MOQ must be a number"}).int().min(1, "MOQ must be at least 1").default(1),
+  description: z.string().min(10, "Description must be at least 10 characters").max(5000).optional().nullable(),
+  category_id: z.string().min(1, "Please select a category"), // This will be used to form category: {id: ...}
+  basePrice: z.coerce.number({invalid_type_error: "Base price must be a number"}).positive("Price must be a positive number").optional(),
+  isBulkOnly: z.boolean().default(false),
+  minimumOrderQuantity: z.coerce.number({invalid_type_error: "MOQ must be a number"}).int().min(1, "MOQ must be at least 1").default(1),
   weight: z.coerce.number({invalid_type_error: "Weight must be a number"}).optional(),
-  weight_unit: z.string().max(10).optional(),
-  dimensions: z.string().max(50).optional(),
+  weightUnit: z.string().max(10).optional().nullable(),
+  dimensions: z.string().max(50).optional().nullable(),
   sku: z.string().min(1, "SKU is required").max(50),
   available: z.boolean().default(true),
   variants: z.array(productVariantSchema).optional(),
@@ -100,7 +100,7 @@ const productSchema = z.object({
 type ProductFormValues = z.infer<typeof productSchema>;
 
 export default function AddNewProductPage() {
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false); // Changed isLoading to isSubmitting for clarity
   const { toast } = useToast();
   const accessToken = useSelector(selectAccessToken);
 
@@ -110,11 +110,11 @@ export default function AddNewProductPage() {
       name: "",
       description: "",
       category_id: "",
-      base_price: '' as unknown as number,
-      is_bulk_only: false,
-      minimum_order_quantity: 1,
-      weight: '' as unknown as number, 
-      weight_unit: "",
+      basePrice: undefined,
+      isBulkOnly: false,
+      minimumOrderQuantity: 1,
+      weight: undefined,
+      weightUnit: "",
       dimensions: "",
       sku: "",
       available: true,
@@ -143,7 +143,7 @@ export default function AddNewProductPage() {
   });
 
  const onSubmit = async (values: ProductFormValues) => {
-    setIsLoading(true);
+    setIsSubmitting(true);
 
     if (!accessToken) {
       toast({
@@ -151,27 +151,30 @@ export default function AddNewProductPage() {
         title: "Authentication Error",
         description: "You are not logged in. Please log in to add a product.",
       });
-      setIsLoading(false);
+      setIsSubmitting(false);
       return;
     }
     
-    const apiValues = {
-      ...values,
-      base_price: values.base_price === ('' as unknown as number) || values.base_price === undefined ? undefined : Number(values.base_price),
-      weight: values.weight === ('' as unknown as number) || values.weight === undefined ? undefined : Number(values.weight),
-      minimum_order_quantity: values.minimum_order_quantity === ('' as unknown as number) || values.minimum_order_quantity === undefined ? 1 : Number(values.minimum_order_quantity),
-      variants: values.variants?.map(v => ({...v, additional_price: v.additional_price === ('' as unknown as number) || v.additional_price === undefined ? undefined : Number(v.additional_price)})),
-      images: values.images?.map(img => ({...img, display_order: img.display_order === ('' as unknown as number) || img.display_order === undefined ? undefined : Number(img.display_order)})),
-      specifications: values.specifications?.map(spec => ({...spec, display_order: spec.display_order === ('' as unknown as number) || spec.display_order === undefined ? undefined : Number(spec.display_order)})),
-      priceTiers: values.priceTiers?.map(tier => ({
-        ...tier,
-        min_quantity: tier.min_quantity === ('' as unknown as number) || tier.min_quantity === undefined ? 1 : Number(tier.min_quantity),
-        max_quantity: tier.max_quantity === ('' as unknown as number) || tier.max_quantity === undefined || tier.max_quantity === null ? undefined : Number(tier.max_quantity),
-        price_per_unit: tier.price_per_unit === ('' as unknown as number) || tier.price_per_unit === undefined ? undefined : Number(tier.price_per_unit),
-      }))
+    // Construct the payload according to the backend's Products entity structure
+    const apiPayload = {
+      name: values.name,
+      description: values.description || null,
+      category: values.category_id ? { id: values.category_id } : null, // Backend expects Category object
+      basePrice: values.basePrice, // Already coerced to number by Zod if provided
+      isBulkOnly: values.isBulkOnly,
+      minimumOrderQuantity: values.minimumOrderQuantity,
+      weight: values.weight, // Already coerced to number by Zod if provided
+      weightUnit: values.weightUnit || "kg", // Default if empty, or send null
+      dimensions: values.dimensions || null,
+      sku: values.sku,
+      available: values.available,
+      // variants, images, specifications, priceTiers are not sent for this specific request
+      // as per user focus on basic product creation first.
+      // If your backend expects empty arrays for these, add them:
+      // productVariants: [], productImages: [], productSpecifications: [], priceTiers: []
     };
     
-    console.log("Submitting to API:", JSON.stringify(apiValues, null, 2));
+    console.log("Submitting to API (http://localhost:8080/products):", JSON.stringify(apiPayload, null, 2));
 
     try {
       const response = await fetch('http://localhost:8080/products', {
@@ -180,14 +183,14 @@ export default function AddNewProductPage() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${accessToken}`,
         },
-        body: JSON.stringify(apiValues),
+        body: JSON.stringify(apiPayload),
       });
 
       const responseData = await response.json();
 
       if (!response.ok) {
         console.error("API Error Response:", responseData);
-        const serverMessage = responseData.message || (responseData.errors && responseData.errors.map((e: any) => e.defaultMessage).join(', ')) || `Failed to create product. Status: ${response.status}`;
+        const serverMessage = responseData.message || (responseData.errors && responseData.errors.map((e: any) => e.defaultMessage || e.message).join(', ')) || `Failed to create product. Status: ${response.status}`;
         throw new Error(serverMessage);
       }
 
@@ -196,21 +199,9 @@ export default function AddNewProductPage() {
         description: responseData.message || `Product "${values.name}" has been created.`,
       });
       form.reset({ 
-        name: "",
-        description: "",
-        category_id: "",
-        base_price: '' as unknown as number,
-        is_bulk_only: false,
-        minimum_order_quantity: 1,
-        weight: '' as unknown as number,
-        weight_unit: "",
-        dimensions: "",
-        sku: "",
-        available: true,
-        variants: [],
-        images: [],
-        specifications: [],
-        priceTiers: [],
+        name: "", description: "", category_id: "", basePrice: undefined, isBulkOnly: false, minimumOrderQuantity: 1,
+        weight: undefined, weightUnit: "", dimensions: "", sku: "", available: true,
+        variants: [], images: [], specifications: [], priceTiers: [],
       }); 
     } catch (error: any) {
       toast({
@@ -220,7 +211,7 @@ export default function AddNewProductPage() {
       });
       console.error("Product creation error details:", error);
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -359,7 +350,7 @@ export default function AddNewProductPage() {
                       <FormItem className="md:col-span-2">
                         <FormLabel>Product Description</FormLabel>
                         <FormControl>
-                          <Textarea placeholder="Detailed description of your product..." className="min-h-[120px]" {...field} />
+                          <Textarea placeholder="Detailed description of your product..." className="min-h-[120px]" {...field} value={field.value ?? ''} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -399,7 +390,7 @@ export default function AddNewProductPage() {
                           </SelectContent>
                         </Select>
                         <FormDescription>
-                          Select the primary category for this product. <Link href="/seller/dashboard/category-management" className="text-xs text-primary hover:underline">Manage Categories</Link>
+                          Select the primary category for this product. These are dummy categories. <Link href="/seller/dashboard/category-management" className="text-xs text-primary hover:underline">Manage Categories</Link>
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
@@ -415,12 +406,12 @@ export default function AddNewProductPage() {
                 <CardContent className="grid md:grid-cols-2 gap-6">
                    <FormField
                     control={form.control}
-                    name="base_price"
+                    name="basePrice"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Base Price (per unit)</FormLabel>
                         <FormControl>
-                          <Input type="number" step="0.01" placeholder="0.00" {...field} value={field.value ?? ''} 
+                          <Input type="number" step="0.01" placeholder="0.00" {...field} 
                                  onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} />
                         </FormControl>
                         <FormMessage />
@@ -429,12 +420,12 @@ export default function AddNewProductPage() {
                   />
                   <FormField
                     control={form.control}
-                    name="minimum_order_quantity"
+                    name="minimumOrderQuantity"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Minimum Order Quantity (MOQ)</FormLabel>
                         <FormControl>
-                          <Input type="number" placeholder="1" {...field} value={field.value ?? 1}
+                          <Input type="number" placeholder="1" {...field} 
                                  onChange={e => field.onChange(e.target.value === '' ? 1 : parseInt(e.target.value, 10))} />
                         </FormControl>
                         <FormMessage />
@@ -443,7 +434,7 @@ export default function AddNewProductPage() {
                   />
                   <FormField
                     control={form.control}
-                    name="is_bulk_only"
+                    name="isBulkOnly"
                     render={({ field }) => (
                       <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm md:col-span-2">
                         <div className="space-y-0.5">
@@ -476,7 +467,7 @@ export default function AddNewProductPage() {
                       <FormItem>
                         <FormLabel>Weight</FormLabel>
                         <FormControl>
-                          <Input type="number" step="any" placeholder="e.g., 5.5" {...field} value={field.value ?? ''} 
+                          <Input type="number" step="any" placeholder="e.g., 5.5" {...field}  
                                  onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} />
                         </FormControl>
                         <FormMessage />
@@ -485,7 +476,7 @@ export default function AddNewProductPage() {
                   />
                   <FormField
                     control={form.control}
-                    name="weight_unit"
+                    name="weightUnit"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Weight Unit</FormLabel>
@@ -541,9 +532,17 @@ export default function AddNewProductPage() {
               </Card>
               
               <Separator />
+              <Alert variant="default" className="bg-primary/10 border-primary/30">
+                  <Info className="h-5 w-5 text-primary" />
+                  <AlertTitle className="text-primary font-semibold">Advanced Details</AlertTitle>
+                  <AlertDescription className="text-primary/80">
+                    Product Variants, Images, Specifications, and Price Tiers sections below are currently UI placeholders.
+                    They are not yet connected to the backend API for creating the basic product. This will be handled in a future update.
+                  </AlertDescription>
+              </Alert>
 
               {/* Product Variants Section */}
-              <Card className="shadow-md">
+              <Card className="shadow-md opacity-50 pointer-events-none">
                 <CardHeader>
                   <CardTitle className="font-headline flex items-center"><ListPlus className="mr-2 h-5 w-5 text-primary"/>Product Variants</CardTitle>
                   <CardDescription>Define different versions of your product (e.g., by size, color). Each variant can have its own SKU and price adjustment.</CardDescription>
@@ -580,7 +579,7 @@ export default function AddNewProductPage() {
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Additional Price (Optional)</FormLabel>
-                              <FormControl><Input type="number" step="0.01" placeholder="0.00" {...field} value={field.value ?? ''}
+                              <FormControl><Input type="number" step="0.01" placeholder="0.00" {...field} 
                                                    onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} /></FormControl>
                               <FormMessage />
                             </FormItem>
@@ -607,7 +606,7 @@ export default function AddNewProductPage() {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => appendVariant({ sku: '', variant_name: '', additional_price: '' as unknown as number, available: true })}
+                    onClick={() => appendVariant({ sku: '', variant_name: '', additional_price: undefined, available: true })}
                   >
                     <PlusCircle className="mr-2 h-4 w-4" /> Add Variant
                   </Button>
@@ -615,7 +614,7 @@ export default function AddNewProductPage() {
               </Card>
 
               {/* Product Images Section */}
-              <Card className="shadow-md">
+              <Card className="shadow-md opacity-50 pointer-events-none">
                 <CardHeader>
                   <CardTitle className="font-headline flex items-center"><ImagePlus className="mr-2 h-5 w-5 text-primary"/>Product Images</CardTitle>
                   <CardDescription>Add image URLs for your product. Mark one as primary. (Actual file upload coming soon)</CardDescription>
@@ -652,7 +651,7 @@ export default function AddNewProductPage() {
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Display Order (Optional)</FormLabel>
-                              <FormControl><Input type="number" placeholder="0" {...field} value={field.value ?? ''}
+                              <FormControl><Input type="number" placeholder="0" {...field} 
                                                    onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value,10))}/></FormControl>
                               <FormMessage />
                             </FormItem>
@@ -679,21 +678,15 @@ export default function AddNewProductPage() {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => appendImage({ image_url: '', alt_text: '', display_order: '' as unknown as number, is_primary: imageFields.length === 0 })}
+                    onClick={() => appendImage({ image_url: '', alt_text: '', display_order: undefined, is_primary: imageFields.length === 0 })}
                   >
                     <PlusCircle className="mr-2 h-4 w-4" /> Add Image URL
                   </Button>
-                   <Alert variant="default" className="bg-muted/50 mt-4">
-                     <Info className="h-4 w-4" />
-                     <AlertDescription className="text-xs">
-                       Actual file uploads for images will be implemented later. For now, please use publicly accessible image URLs. Ensure only one image is marked as primary.
-                     </AlertDescription>
-                   </Alert>
                 </CardContent>
               </Card>
 
               {/* Product Specifications Section */}
-              <Card className="shadow-md">
+              <Card className="shadow-md opacity-50 pointer-events-none">
                 <CardHeader>
                   <CardTitle className="font-headline flex items-center"><Tags className="mr-2 h-5 w-5 text-primary"/>Product Specifications</CardTitle>
                   <CardDescription>Add key-value pairs for product specifications (e.g., Material: Steel, Voltage: 220V).</CardDescription>
@@ -741,7 +734,7 @@ export default function AddNewProductPage() {
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Display Order (Optional)</FormLabel>
-                              <FormControl><Input type="number" placeholder="0" {...field} value={field.value ?? ''} 
+                              <FormControl><Input type="number" placeholder="0" {...field}  
                                                    onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value,10))} /></FormControl>
                               <FormMessage />
                             </FormItem>
@@ -758,7 +751,7 @@ export default function AddNewProductPage() {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => appendSpec({ spec_name: '', spec_value: '', unit: '', display_order: '' as unknown as number })}
+                    onClick={() => appendSpec({ spec_name: '', spec_value: '', unit: '', display_order: undefined })}
                   >
                     <PlusCircle className="mr-2 h-4 w-4" /> Add Specification
                   </Button>
@@ -766,7 +759,7 @@ export default function AddNewProductPage() {
               </Card>
 
               {/* Price Tiers Section */}
-              <Card className="shadow-md">
+              <Card className="shadow-md opacity-50 pointer-events-none">
                 <CardHeader>
                   <CardTitle className="font-headline flex items-center"><DollarSign className="mr-2 h-5 w-5 text-primary"/>Price Tiers</CardTitle>
                   <CardDescription>Set up volume-based pricing. Offer discounts for larger quantities.</CardDescription>
@@ -781,7 +774,7 @@ export default function AddNewProductPage() {
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Min Quantity</FormLabel>
-                              <FormControl><Input type="number" placeholder="1" {...field} value={field.value ?? ''}
+                              <FormControl><Input type="number" placeholder="1" {...field} 
                                                    onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value,10))} /></FormControl>
                               <FormMessage />
                             </FormItem>
@@ -793,7 +786,7 @@ export default function AddNewProductPage() {
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Max Quantity (Optional)</FormLabel>
-                              <FormControl><Input type="number" placeholder="e.g., 50" {...field} value={field.value ?? ''} 
+                              <FormControl><Input type="number" placeholder="e.g., 50" {...field}  
                                                    onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value,10))} /></FormControl>
                               <FormMessage />
                             </FormItem>
@@ -805,7 +798,7 @@ export default function AddNewProductPage() {
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Price Per Unit</FormLabel>
-                              <FormControl><Input type="number" step="0.01" placeholder="0.00" {...field} value={field.value ?? ''}
+                              <FormControl><Input type="number" step="0.01" placeholder="0.00" {...field} 
                                                    onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} /></FormControl>
                               <FormMessage />
                             </FormItem>
@@ -832,7 +825,7 @@ export default function AddNewProductPage() {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => appendTier({ min_quantity: '' as unknown as number, max_quantity: undefined, price_per_unit: '' as unknown as number, is_active: true })}
+                    onClick={() => appendTier({ min_quantity: undefined, max_quantity: undefined, price_per_unit: undefined, is_active: true })}
                   >
                     <PlusCircle className="mr-2 h-4 w-4" /> Add Price Tier
                   </Button>
@@ -843,14 +836,14 @@ export default function AddNewProductPage() {
               
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={() => form.reset({ 
-                    name: "", description: "", category_id: "", base_price: '' as unknown as number, is_bulk_only: false, minimum_order_quantity: 1,
-                    weight: '' as unknown as number, weight_unit: "", dimensions: "", sku: "", available: true,
+                    name: "", description: "", category_id: "", basePrice: undefined, isBulkOnly: false, minimumOrderQuantity: 1,
+                    weight: undefined, weightUnit: "", dimensions: "", sku: "", available: true,
                     variants: [], images: [], specifications: [], priceTiers: [],
-                })} disabled={isLoading}>
+                })} disabled={isSubmitting}>
                   Reset Form
                 </Button>
-                <Button type="submit" className="bg-accent text-accent-foreground hover:bg-accent/90 min-w-[150px]" disabled={isLoading}>
-                  {isLoading ? (
+                <Button type="submit" className="bg-accent text-accent-foreground hover:bg-accent/90 min-w-[150px]" disabled={isSubmitting}>
+                  {isSubmitting ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Saving...
@@ -867,4 +860,3 @@ export default function AddNewProductPage() {
     </SidebarProvider>
   );
 }
-

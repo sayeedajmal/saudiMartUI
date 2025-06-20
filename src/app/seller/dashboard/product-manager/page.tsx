@@ -25,30 +25,25 @@ import { useToast } from '@/hooks/use-toast';
 import { selectAccessToken } from '@/lib/redux/slices/userSlice';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
-// Simplified Product type for listing. Adjust as needed based on actual API response.
+// Matches the backend Products entity structure for relevant list fields
 export interface SellerProductListItem {
-  product_id: string; // Assuming backend provides this
+  id: number; // Changed from product_id to id, and type to number
   name: string;
   sku: string;
-  category_id: string; // We might need to fetch category name separately or have it nested
-  category_name?: string; // Placeholder for display
-  base_price: number | string; // Can be string from form, number from API
+  category?: { // Category can be null or an object
+    id: number;
+    name: string;
+  } | null;
+  basePrice: number | null; // Changed from base_price, can be null
   available: boolean;
 }
-
-// DUMMY DATA - Replace with actual API call
-const DUMMY_PRODUCTS_LIST: SellerProductListItem[] = [
-  { product_id: 'prod_123', name: 'Premium Steel Pipes', sku: 'SPP-MQ-001', category_id: 'cat_seller_1', category_name: 'My Custom Electronics', base_price: 150.00, available: true },
-  { product_id: 'prod_456', name: 'Organic Cotton Fabric', sku: 'OCF-Handmade-002', category_id: 'cat_seller_2', category_name: 'Handmade Textiles', base_price: 25.50, available: true },
-  { product_id: 'prod_789', name: 'Gourmet Spice Mix', sku: 'GSM-Local-003', category_id: 'cat_seller_3', category_name: 'Locally Sourced Spices', base_price: 12.75, available: false },
-];
-
 
 export default function SellerProductManagerPage() {
   const [products, setProducts] = useState<SellerProductListItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [productToDelete, setProductToDelete] = useState<SellerProductListItem | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const accessToken = useSelector(selectAccessToken);
   const { toast } = useToast();
@@ -57,39 +52,39 @@ export default function SellerProductManagerPage() {
     setIsLoading(true);
     setError(null);
     if (!accessToken) {
-      // setError("Authentication token not found. Please log in.");
-      // setIsLoading(false);
-      // Using dummy data if not logged in, for demo. Real app should prevent this.
-      toast({ title: "Demo Mode", description: "Displaying sample products. Login to see your actual products." });
-      setProducts(DUMMY_PRODUCTS_LIST);
+      toast({ title: "Authentication Error", description: "Please log in to view your products.", variant: "destructive" });
+      setProducts([]);
       setIsLoading(false);
       return;
     }
 
     try {
-      // TODO: Replace with actual API call: GET /products/seller/me (or similar)
-      // For now, simulate API call with dummy data if token exists
-      await new Promise(resolve => setTimeout(resolve, 1000)); 
-      // Example:
-      // const response = await fetch('http://localhost:8080/products/seller/me', {
-      //   headers: { 'Authorization': `Bearer ${accessToken}` },
-      // });
-      // if (!response.ok) {
-      //   const errorData = await response.json();
-      //   throw new Error(errorData.message || 'Failed to fetch products');
-      // }
-      // const data: SellerProductListItem[] = await response.json(); // Adjust type based on actual API
-      // setProducts(data);
-      
-      // Simulating fetched data for now
-      setProducts(DUMMY_PRODUCTS_LIST.map(p => ({...p, name: `${p.name} (Fetched)`}))); 
-      toast({
-        title: "Products Loaded (Simulated)",
-        description: "Displaying products for the logged-in seller (simulated fetch).",
+      const response = await fetch('http://localhost:8080/products', {
+        headers: { 'Authorization': `Bearer ${accessToken}` },
       });
+      
+      const responseData = await response.json();
+
+      if (!response.ok) {
+        throw new Error(responseData.message || 'Failed to fetch products');
+      }
+      
+      // Assuming responseData.data is the array of products from your ResponseWrapper
+      const fetchedProducts: SellerProductListItem[] = responseData.data.map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        sku: p.sku,
+        category: p.category ? { id: p.category.id, name: p.category.name } : null,
+        basePrice: p.basePrice,
+        available: p.available,
+      }));
+      setProducts(fetchedProducts);
+       if (fetchedProducts.length === 0) {
+         toast({ title: "No Products Found", description: "You haven't added any products yet."});
+       }
     } catch (err: any) {
       setError(err.message || "An unexpected error occurred while fetching products.");
-      setProducts(DUMMY_PRODUCTS_LIST); // Fallback to basic dummy data on error
+      setProducts([]); 
       toast({
         variant: "destructive",
         title: "Error Fetching Products",
@@ -116,14 +111,27 @@ export default function SellerProductManagerPage() {
       setProductToDelete(null);
       return;
     }
-    // TODO: Implement actual API call: DELETE /products/{productToDelete.product_id}
-    // For now, simulate delete and show toast
-    console.log(`Simulating delete for product ID: ${productToDelete.product_id} with token: ${accessToken}`);
-    await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API delay
-    
-    toast({ title: "Product Deleted (Simulated)", description: `${productToDelete.name} has been deleted.` });
-    setProducts(prev => prev.filter(p => p.product_id !== productToDelete.product_id));
-    setProductToDelete(null);
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`http://localhost:8080/products/${productToDelete.id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${accessToken}` },
+      });
+
+      const responseData = await response.json();
+
+      if (!response.ok) {
+        throw new Error(responseData.message || `Failed to delete product. Status: ${response.status}`);
+      }
+      
+      toast({ title: "Product Deleted", description: responseData.message || `${productToDelete.name} has been deleted.` });
+      fetchSellerProducts(); // Refresh list
+    } catch (err: any) {
+       toast({ variant: "destructive", title: "Error Deleting Product", description: err.message });
+    } finally {
+      setProductToDelete(null);
+      setIsDeleting(false);
+    }
   };
 
 
@@ -277,11 +285,11 @@ export default function SellerProductManagerPage() {
                   </TableHeader>
                   <TableBody>
                     {products.map((product) => (
-                      <TableRow key={product.product_id}>
+                      <TableRow key={product.id}>
                         <TableCell className="font-medium max-w-xs truncate" title={product.name}>{product.name}</TableCell>
                         <TableCell>{product.sku}</TableCell>
-                        <TableCell>{product.category_name || product.category_id}</TableCell>
-                        <TableCell>${typeof product.base_price === 'number' ? product.base_price.toFixed(2) : product.base_price}</TableCell>
+                        <TableCell>{product.category?.name || 'N/A'}</TableCell>
+                        <TableCell>${typeof product.basePrice === 'number' ? product.basePrice.toFixed(2) : (product.basePrice || 'N/A')}</TableCell>
                         <TableCell>
                           <Badge variant={product.available ? "default" : "secondary"} className={product.available ? 'bg-green-500 hover:bg-green-600' : 'bg-red-500 hover:bg-red-600'}>
                             {product.available ? "Available" : "Unavailable"}
@@ -289,19 +297,19 @@ export default function SellerProductManagerPage() {
                         </TableCell>
                         <TableCell className="text-right space-x-2">
                            <Button variant="outline" size="sm" asChild>
-                            {/* Placeholder for viewing product on storefront - assumes a public product page structure */}
-                            <Link href={`/products/${product.product_id}`} target="_blank" title="View on storefront (placeholder - needs correct slug or ID)">
+                            {/* Use product.id for the link, assuming slug is not available directly */}
+                            <Link href={`/products/${product.id}`} target="_blank" title="View on storefront (uses ID, adjust if slug needed)">
                               <Eye className="mr-1 h-3 w-3" /> 
                             </Link>
                           </Button>
                           <Button variant="outline" size="sm" asChild>
-                            {/* TODO: Update href to actual edit page: /seller/dashboard/product-manager/edit/${product.product_id} */}
-                            <Link href={`#edit-${product.product_id}`} title="Edit Product (Not Implemented)">
+                            {/* TODO: Update href to actual edit page: /seller/dashboard/product-manager/edit/${product.id} */}
+                            <Link href={`#edit-${product.id}`} title="Edit Product (Not Implemented)">
                               <Edit3 className="mr-1 h-3 w-3" /> Edit
                             </Link>
                           </Button>
-                          <Button variant="destructive" size="sm" onClick={() => handleDeleteProduct(product)} title="Delete Product">
-                            <Trash2 className="mr-1 h-3 w-3" /> 
+                          <Button variant="destructive" size="sm" onClick={() => handleDeleteProduct(product)} title="Delete Product" disabled={isDeleting}>
+                            {isDeleting && productToDelete?.id === product.id ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Trash2 className="mr-1 h-3 w-3" />}
                           </Button>
                         </TableCell>
                       </TableRow>
@@ -315,7 +323,7 @@ export default function SellerProductManagerPage() {
       </SidebarInset>
 
       {productToDelete && (
-        <AlertDialog open={!!productToDelete} onOpenChange={() => setProductToDelete(null)}>
+        <AlertDialog open={!!productToDelete} onOpenChange={(isOpen) => { if(!isOpen) setProductToDelete(null); }}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Are you sure you want to delete &quot;{productToDelete.name}&quot;?</AlertDialogTitle>
@@ -324,8 +332,9 @@ export default function SellerProductManagerPage() {
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => setProductToDelete(null)}>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={confirmDeleteProduct} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              <AlertDialogCancel onClick={() => setProductToDelete(null)} disabled={isDeleting}>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmDeleteProduct} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={isDeleting}>
+                {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
                 Yes, Delete Product
               </AlertDialogAction>
             </AlertDialogFooter>
@@ -335,4 +344,3 @@ export default function SellerProductManagerPage() {
     </SidebarProvider>
   );
 }
-    
