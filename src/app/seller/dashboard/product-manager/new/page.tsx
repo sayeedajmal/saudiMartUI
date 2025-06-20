@@ -34,7 +34,7 @@ import {
   FormMessage,
   FormDescription
 } from "@/components/ui/form";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -42,40 +42,38 @@ import { Separator } from "@/components/ui/separator";
 import { useSelector } from 'react-redux';
 import { selectAccessToken } from '@/lib/redux/slices/userSlice';
 
-
-const DUMMY_SELLER_CATEGORIES = [
-  { id: "1", name: "Electronics (Dummy ID 1)" },
-  { id: "2", name: "Textiles (Dummy ID 2)" },
-  { id: "3", name: "Spices (Dummy ID 3)" },
-  { id: "4", name: "General Goods (Dummy ID 4)" }
-];
+interface FetchedCategory {
+  id: number;
+  name: string;
+  isActive: boolean;
+}
 
 const productVariantSchema = z.object({
   sku: z.string().min(1, "Variant SKU is required").max(50),
-  variant_name: z.string().optional(), // Will be mapped to variantName
-  additional_price: z.coerce.number({invalid_type_error: "Additional price must be a number"}).optional(), // Will be mapped to additionalPrice
+  variant_name: z.string().optional(),
+  additional_price: z.coerce.number({invalid_type_error: "Additional price must be a number"}).optional(),
   available: z.boolean().default(true),
 });
 
 const productImageSchema = z.object({
-  image_url: z.string().url({ message: "Please enter a valid URL for the image." }), // Will be mapped to imageUrl
-  alt_text: z.string().optional(), // Will be mapped to altText
-  display_order: z.coerce.number({invalid_type_error: "Display order must be a number"}).int().optional(), // Will be mapped to displayOrder
-  is_primary: z.boolean().default(false), // Will be mapped to isPrimary
+  image_url: z.string().url({ message: "Please enter a valid URL for the image." }),
+  alt_text: z.string().optional(),
+  display_order: z.coerce.number({invalid_type_error: "Display order must be a number"}).int().optional(),
+  is_primary: z.boolean().default(false),
 });
 
 const productSpecificationSchema = z.object({
-  spec_name: z.string().min(1, "Specification name is required"), // Will be mapped to specName
-  spec_value: z.string().min(1, "Specification value is required"), // Will be mapped to specValue
+  spec_name: z.string().min(1, "Specification name is required"),
+  spec_value: z.string().min(1, "Specification value is required"),
   unit: z.string().optional(),
-  display_order: z.coerce.number({invalid_type_error: "Display order must be a number"}).int().optional(), // Will be mapped to displayOrder
+  display_order: z.coerce.number({invalid_type_error: "Display order must be a number"}).int().optional(),
 });
 
 const priceTierSchema = z.object({
-  min_quantity: z.coerce.number({invalid_type_error: "Min quantity must be a number"}).int().min(1, "Min quantity must be at least 1"), // Will be mapped to minQuantity
-  max_quantity: z.coerce.number({invalid_type_error: "Max quantity must be a number"}).int().optional().nullable().transform(val => val === null || val === '' ? undefined : val), // Will be mapped to maxQuantity
-  price_per_unit: z.coerce.number({invalid_type_error: "Price must be a number"}).positive("Price must be positive"), // Will be mapped to pricePerUnit
-  is_active: z.boolean().default(true), // Will be mapped to isActive
+  min_quantity: z.coerce.number({invalid_type_error: "Min quantity must be a number"}).int().min(1, "Min quantity must be at least 1"),
+  max_quantity: z.coerce.number({invalid_type_error: "Max quantity must be a number"}).int().optional().nullable().transform(val => val === null || val === '' ? undefined : val),
+  price_per_unit: z.coerce.number({invalid_type_error: "Price must be a number"}).positive("Price must be positive"),
+  is_active: z.boolean().default(true),
 });
 
 
@@ -103,6 +101,8 @@ export default function AddNewProductPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
   const accessToken = useSelector(selectAccessToken);
+  const [categories, setCategories] = useState<FetchedCategory[]>([]);
+  const [isLoadingCategories, setIsLoadingCategories] = useState(false);
 
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productSchema),
@@ -124,6 +124,34 @@ export default function AddNewProductPage() {
       priceTiers: [],
     },
   });
+
+  const fetchCategories = useCallback(async () => {
+    if (!accessToken) {
+      // toast({ variant: "destructive", title: "Authentication Error", description: "Cannot fetch categories. Please log in." });
+      return;
+    }
+    setIsLoadingCategories(true);
+    try {
+      const response = await fetch('http://localhost:8080/categories?isActive=true', {
+        headers: { 'Authorization': `Bearer ${accessToken}` },
+      });
+      const responseData = await response.json();
+      if (!response.ok) {
+        throw new Error(responseData.message || "Failed to fetch categories");
+      }
+      setCategories(responseData.data || []);
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Error fetching categories", description: error.message });
+      setCategories([]);
+    } finally {
+      setIsLoadingCategories(false);
+    }
+  }, [accessToken, toast]);
+
+  useEffect(() => {
+    fetchCategories();
+  }, [fetchCategories]);
+
 
   const { fields: variantFields, append: appendVariant, remove: removeVariant } = useFieldArray({
     control: form.control,
@@ -155,11 +183,10 @@ export default function AddNewProductPage() {
       return;
     }
     
-    // 1. Create Main Product
     const mainProductApiPayload = {
       name: values.name,
       description: values.description || null,
-      category: values.category_id ? { id: parseInt(values.category_id, 10) } : null, // Assuming category_id is numeric
+      category: values.category_id ? { id: parseInt(values.category_id, 10) } : null,
       basePrice: values.basePrice,
       isBulkOnly: values.isBulkOnly,
       minimumOrderQuantity: values.minimumOrderQuantity,
@@ -185,7 +212,7 @@ export default function AddNewProductPage() {
 
       const productResponseData = await productResponse.json();
 
-      if (!productResponse.ok || productResponseData.statusCode !== 200 && productResponse.status !== 201) { // Check both status codes
+      if (!productResponse.ok || productResponseData.statusCode !== 200 && productResponse.status !== 201) {
         const serverMessage = productResponseData.message || (productResponseData.errors && productResponseData.errors.map((e: any) => e.defaultMessage || e.message).join(', ')) || `Failed to create product. Status: ${productResponse.status}`;
         throw new Error(serverMessage);
       }
@@ -204,10 +231,9 @@ export default function AddNewProductPage() {
         description: error.message || "An unexpected error occurred.",
       });
       setIsSubmitting(false);
-      return; // Stop if main product creation fails
+      return; 
     }
 
-    // 2. Create Sub-Entities if Main Product was Created
     if (newlyCreatedProductId) {
       const subEntityPromises = [];
 
@@ -226,8 +252,10 @@ export default function AddNewProductPage() {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
               body: JSON.stringify(variantPayload),
-            }).then(res => res.json().then(data => ({ type: 'Variant', name: variant.sku, success: res.ok && res.status === 201, data })))
-              .catch(err => ({ type: 'Variant', name: variant.sku, success: false, error: err.message }))
+            }).then(async res => {
+                const data = await res.json();
+                return { type: 'Variant', name: variant.sku, success: res.ok && (res.status === 201 || res.status === 200) && data.statusCode !== 400, data };
+            }).catch(err => ({ type: 'Variant', name: variant.sku, success: false, error: err.message }))
           );
         }
       }
@@ -247,8 +275,10 @@ export default function AddNewProductPage() {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
               body: JSON.stringify(imagePayload),
-            }).then(res => res.json().then(data => ({ type: 'Image', name: image.alt_text || `Image ${image.display_order}`, success: res.ok && res.status === 201, data })))
-              .catch(err => ({ type: 'Image', name: image.alt_text || `Image ${image.display_order}`, success: false, error: err.message }))
+            }).then(async res => {
+                const data = await res.json();
+                return { type: 'Image', name: image.alt_text || `Image ${image.display_order || ''}`, success: res.ok && (res.status === 201 || res.status === 200) && data.statusCode !== 400, data };
+            }).catch(err => ({ type: 'Image', name: image.alt_text || `Image ${image.display_order || ''}`, success: false, error: err.message }))
           );
         }
       }
@@ -268,8 +298,10 @@ export default function AddNewProductPage() {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
               body: JSON.stringify(specPayload),
-            }).then(res => res.json().then(data => ({ type: 'Specification', name: spec.spec_name, success: res.ok && res.status === 201, data })))
-              .catch(err => ({ type: 'Specification', name: spec.spec_name, success: false, error: err.message }))
+            }).then(async res => {
+                const data = await res.json();
+                return { type: 'Specification', name: spec.spec_name, success: res.ok && (res.status === 201 || res.status === 200) && data.statusCode !== 400, data };
+            }).catch(err => ({ type: 'Specification', name: spec.spec_name, success: false, error: err.message }))
           );
         }
       }
@@ -289,8 +321,10 @@ export default function AddNewProductPage() {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
               body: JSON.stringify(tierPayload),
-            }).then(res => res.json().then(data => ({ type: 'Price Tier', name: `Tier (Min Qty: ${tier.min_quantity})`, success: res.ok && res.status === 201, data })))
-             .catch(err => ({ type: 'Price Tier', name: `Tier (Min Qty: ${tier.min_quantity})`, success: false, error: err.message }))
+            }).then(async res => {
+                const data = await res.json();
+                return { type: 'Price Tier', name: `Tier (Min Qty: ${tier.min_quantity})`, success: res.ok && (res.status === 201 || res.status === 200) && data.statusCode !== 400, data };
+            }).catch(err => ({ type: 'Price Tier', name: `Tier (Min Qty: ${tier.min_quantity})`, success: false, error: err.message }))
           );
         }
       }
@@ -304,7 +338,7 @@ export default function AddNewProductPage() {
             toast({ title: `${type} Added`, description: `${name} details saved successfully.` });
           } else {
             allSubEntitiesSuccessful = false;
-            const errorMessage = data?.message || data?.errors?.map((e:any) => e.defaultMessage || e.message).join(', ') || error || 'Unknown error';
+            const errorMessage = data?.message || (data?.errors && data.errors.map((e:any) => e.defaultMessage || e.message).join(', ')) || error || 'Unknown error';
             toast({ variant: "destructive", title: `Error Adding ${type}`, description: `Failed to save ${name}: ${errorMessage}` });
           }
         } else if (result.status === 'rejected') {
@@ -318,7 +352,7 @@ export default function AddNewProductPage() {
         form.reset();
       } else if (mainProductCreationSuccessful) {
          toast({ title: "Partial Success", description: "Main product saved, but some details had issues. Check notifications.", duration: 5000 });
-         form.reset(); // Reset even on partial success of main product
+         form.reset(); 
       }
     }
     setIsSubmitting(false);
@@ -484,18 +518,24 @@ export default function AddNewProductPage() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Category</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value ?? ''}>
+                        <Select onValueChange={field.onChange} value={field.value ?? ''} disabled={isLoadingCategories}>
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue placeholder="Select a category" />
+                              <SelectValue placeholder={isLoadingCategories ? "Loading categories..." : "Select a category"} />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {DUMMY_SELLER_CATEGORIES.map((category) => (
-                              <SelectItem key={category.id} value={category.id}>
-                                {category.name}
-                              </SelectItem>
-                            ))}
+                            {isLoadingCategories ? (
+                              <SelectItem value="loading" disabled>Loading...</SelectItem>
+                            ) : categories.length > 0 ? (
+                              categories.map((category) => (
+                                <SelectItem key={category.id} value={category.id.toString()}>
+                                  {category.name}
+                                </SelectItem>
+                              ))
+                            ) : (
+                              <SelectItem value="no-categories" disabled>No active categories found.</SelectItem>
+                            )}
                           </SelectContent>
                         </Select>
                         <FormDescription>
