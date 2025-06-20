@@ -15,7 +15,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { BotMessageSquare, LayoutDashboard, ShoppingBag, BarChart3, Settings, MessageSquare, Package, Warehouse, Truck, Bell, Shapes, PlusCircle, Edit3, Trash2, Loader2, Boxes, FileText } from "lucide-react";
+import { BotMessageSquare, LayoutDashboard, ShoppingBag, BarChart3, Settings, MessageSquare, Package, Warehouse, Truck, Bell, Shapes, PlusCircle, Edit3, Trash2, Loader2, Boxes, FileText, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -55,10 +55,9 @@ export default function SellerCategoryManagementPage() {
     setIsLoading(true);
     setError(null);
     if (!accessToken) {
-      // For UI demo purposes if not logged in, can show an error or empty state.
-      // In a real app, this page would be protected by RoleProtectedRoute anyway.
       toast({ variant: "destructive", title: "Authentication Error", description: "Please log in to view categories."});
       setIsLoading(false);
+      setCategories([]); // Clear categories if not authenticated
       return;
     }
 
@@ -74,22 +73,20 @@ export default function SellerCategoryManagementPage() {
       if (!response.ok) {
         throw new Error(responseData.message || 'Failed to fetch categories');
       }
-      // Assuming responseData.data is List<Category> from backend
-      // We map it to SellerCategory, potentially simplifying parent/child for the list
+      
       const fetchedCategories: SellerCategory[] = responseData.data.map((cat: any) => ({
         id: cat.id,
         name: cat.name,
         description: cat.description,
         isActive: cat.isActive,
         createdAt: cat.createdAt,
-        // For simplicity in list, we might just show parent name or ID if available directly
-        // Or leave them null/empty if deep fetching is too complex for this view
         parentCategory: cat.parentCategory ? { id: cat.parentCategory.id, name: cat.parentCategory.name } : null,
         childCategories: cat.childCategories ? cat.childCategories.map((child: any) => ({ id: child.id, name: child.name })) : [],
       }));
       setCategories(fetchedCategories);
     } catch (err: any) {
       setError(err.message || "An unexpected error occurred while fetching categories.");
+      setCategories([]); // Clear categories on error
       toast({
         variant: "destructive",
         title: "Error fetching categories",
@@ -107,8 +104,6 @@ export default function SellerCategoryManagementPage() {
   const handleEdit = (category: SellerCategory) => {
     setSelectedCategoryToEdit(category);
     setIsEditModalOpen(true);
-    // TODO: Implement Edit Category Form/Modal.
-    // It would make a PUT request to http://localhost:8080/categories/{category.id}
     toast({ title: "Edit Clicked (Not Fully Implemented)", description: `Editing: ${category.name}. API for PUT /categories/${category.id} would be used.` });
   };
 
@@ -122,7 +117,7 @@ export default function SellerCategoryManagementPage() {
       setCategoryToDelete(null);
       return;
     }
-    setIsLoading(true); // Indicate loading state for delete operation
+    setIsLoading(true); 
     try {
       const response = await fetch(`http://localhost:8080/categories/${categoryToDelete.id}`, {
         method: 'DELETE',
@@ -131,7 +126,6 @@ export default function SellerCategoryManagementPage() {
         },
       });
 
-      // Backend returns 200 OK with a body for delete.
       const responseData = await response.json();
 
       if (!response.ok) {
@@ -257,12 +251,17 @@ export default function SellerCategoryManagementPage() {
                 <CardTitle className="font-headline">Product Categories</CardTitle>
                 <CardDescription>Manage categories for your products. (Note: Currently displays all system categories)</CardDescription>
               </div>
-              <Button onClick={() => setIsCreateModalOpen(true)} className="bg-accent text-accent-foreground hover:bg-accent/90">
-                <PlusCircle className="mr-2 h-4 w-4" /> Add New Category
-              </Button>
+              <div className="flex gap-2">
+                <Button onClick={fetchSellerCategories} variant="outline" disabled={isLoading}>
+                  <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} /> Refresh
+                </Button>
+                <Button onClick={() => setIsCreateModalOpen(true)} className="bg-accent text-accent-foreground hover:bg-accent/90">
+                  <PlusCircle className="mr-2 h-4 w-4" /> Add New Category
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
-              {isLoading && (
+              {isLoading && categories.length === 0 && ( // Show loading only if no data is present yet
                 <div className="flex justify-center items-center py-8">
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
                   <p className="ml-2 text-muted-foreground">Loading categories...</p>
@@ -361,7 +360,8 @@ export default function SellerCategoryManagementPage() {
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel onClick={() => setCategoryToDelete(null)}>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={isLoading}>
+                 {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                 Yes, Delete Category
               </AlertDialogAction>
             </AlertDialogFooter>
@@ -372,3 +372,6 @@ export default function SellerCategoryManagementPage() {
     </SidebarProvider>
   );
 }
+
+
+    
