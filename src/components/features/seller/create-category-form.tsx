@@ -62,13 +62,11 @@ export function CreateCategoryForm({ onSuccess, onCancel }: CreateCategoryFormPr
 
     setIsLoading(true);
     try {
-      // For creating a top-level category, parentCategory would be null.
-      // The backend should handle this if parentCategory is part of the request body.
       const payload = {
         name: values.name,
-        description: values.description || null, // Ensure null if empty
+        description: values.description || null, 
         isActive: values.isActive,
-        parentCategory: null, // Explicitly setting for top-level category creation
+        parentCategory: null, 
       };
 
       const response = await fetch('http://localhost:8080/categories', {
@@ -83,7 +81,6 @@ export function CreateCategoryForm({ onSuccess, onCancel }: CreateCategoryFormPr
       const responseData = await response.json();
 
       if (!response.ok) {
-         // Assuming responseData.message or a generic error
         const errorMessage = responseData.message || `Failed to create category. Status: ${response.status}`;
         throw new Error(errorMessage);
       }
@@ -128,7 +125,7 @@ export function CreateCategoryForm({ onSuccess, onCancel }: CreateCategoryFormPr
           name="description"
           render={({ field }) => (
             <FormItem>
-              <FormLabel htmlFor="description">Category Description</FormLabel>
+              <FormLabel htmlFor="description">Category Description (Optional)</FormLabel>
               <FormControl>
                 <Textarea
                   id="description"

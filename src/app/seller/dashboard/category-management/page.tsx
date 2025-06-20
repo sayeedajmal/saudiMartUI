@@ -29,19 +29,20 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 
 // Aligned with backend Category.java
 export interface SellerCategory {
-  id: number; // Long in Java maps to number in TS
+  id: number;
   name: string;
-  description: string | null; // Nullable in backend
+  description: string | null;
   isActive: boolean;
-  parentCategory: { id: number; name: string; } | null; // Simplified representation
-  childCategories: { id: number; name: string; }[]; // Simplified representation
-  createdAt?: string; // Timestamp in Java, string in TS
+  parentCategory: { id: number; name: string; } | null;
+  childCategories: { id: number; name: string; }[];
+  createdAt?: string;
 }
 
 
 export default function SellerCategoryManagementPage() {
   const [categories, setCategories] = useState<SellerCategory[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -57,7 +58,7 @@ export default function SellerCategoryManagementPage() {
     if (!accessToken) {
       toast({ variant: "destructive", title: "Authentication Error", description: "Please log in to view categories."});
       setIsLoading(false);
-      setCategories([]); // Clear categories if not authenticated
+      setCategories([]);
       return;
     }
 
@@ -74,6 +75,7 @@ export default function SellerCategoryManagementPage() {
         throw new Error(responseData.message || 'Failed to fetch categories');
       }
       
+      // Assuming responseData.data contains the array of categories
       const fetchedCategories: SellerCategory[] = responseData.data.map((cat: any) => ({
         id: cat.id,
         name: cat.name,
@@ -86,7 +88,7 @@ export default function SellerCategoryManagementPage() {
       setCategories(fetchedCategories);
     } catch (err: any) {
       setError(err.message || "An unexpected error occurred while fetching categories.");
-      setCategories([]); // Clear categories on error
+      setCategories([]);
       toast({
         variant: "destructive",
         title: "Error fetching categories",
@@ -117,7 +119,7 @@ export default function SellerCategoryManagementPage() {
       setCategoryToDelete(null);
       return;
     }
-    setIsLoading(true); 
+    setIsDeleting(true); 
     try {
       const response = await fetch(`http://localhost:8080/categories/${categoryToDelete.id}`, {
         method: 'DELETE',
@@ -142,7 +144,7 @@ export default function SellerCategoryManagementPage() {
       });
     } finally {
       setCategoryToDelete(null);
-      setIsLoading(false);
+      setIsDeleting(false);
     }
   };
 
@@ -253,7 +255,7 @@ export default function SellerCategoryManagementPage() {
               </div>
               <div className="flex gap-2">
                 <Button onClick={fetchSellerCategories} variant="outline" disabled={isLoading}>
-                  <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} /> Refresh
+                  <RefreshCw className={`mr-2 h-4 w-4 ${isLoading && !isDeleting ? 'animate-spin' : ''}`} /> Refresh
                 </Button>
                 <Button onClick={() => setIsCreateModalOpen(true)} className="bg-accent text-accent-foreground hover:bg-accent/90">
                   <PlusCircle className="mr-2 h-4 w-4" /> Add New Category
@@ -261,7 +263,7 @@ export default function SellerCategoryManagementPage() {
               </div>
             </CardHeader>
             <CardContent>
-              {isLoading && categories.length === 0 && ( // Show loading only if no data is present yet
+              {isLoading && categories.length === 0 && ( 
                 <div className="flex justify-center items-center py-8">
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
                   <p className="ml-2 text-muted-foreground">Loading categories...</p>
@@ -298,10 +300,10 @@ export default function SellerCategoryManagementPage() {
                           {category.parentCategory ? category.parentCategory.name : 'N/A (Top-level)'}
                         </TableCell>
                         <TableCell className="text-right space-x-2">
-                          <Button variant="outline" size="sm" onClick={() => handleEdit(category)}>
+                          <Button variant="outline" size="sm" onClick={() => handleEdit(category)} disabled={isDeleting}>
                             <Edit3 className="mr-1 h-3 w-3" /> Edit
                           </Button>
-                          <Button variant="destructive" size="sm" onClick={() => handleDelete(category)}>
+                          <Button variant="destructive" size="sm" onClick={() => handleDelete(category)} disabled={isDeleting}>
                             <Trash2 className="mr-1 h-3 w-3" /> Delete
                           </Button>
                         </TableCell>
@@ -360,8 +362,8 @@ export default function SellerCategoryManagementPage() {
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel onClick={() => setCategoryToDelete(null)}>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={isLoading}>
-                 {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={isDeleting}>
+                 {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                 Yes, Delete Category
               </AlertDialogAction>
             </AlertDialogFooter>
@@ -372,6 +374,4 @@ export default function SellerCategoryManagementPage() {
     </SidebarProvider>
   );
 }
-
-
     
