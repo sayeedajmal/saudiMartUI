@@ -24,6 +24,38 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from '@/hooks/use-toast';
 import { selectAccessToken, selectUser, type MyProfile } from '@/lib/redux/slices/userSlice';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Separator } from '@/components/ui/separator';
+
+// --- START: Updated Interfaces to match detailed API response ---
+interface ProductImage {
+  id: number;
+  imageUrl: string;
+  altText: string | null;
+  isPrimary: boolean;
+}
+
+interface ProductSpecification {
+  id: number;
+  specName: string;
+  specValue: string;
+  unit: string | null;
+}
+
+interface ProductVariant {
+  id: number;
+  sku: string;
+  variantName: string | null;
+  additionalPrice: number;
+  available: boolean;
+}
+
+interface PriceTier {
+  id: number;
+  minQuantity: number;
+  maxQuantity: number | null;
+  pricePerUnit: number;
+  isActive: boolean;
+}
 
 export interface SellerProduct {
   id: number;
@@ -41,7 +73,13 @@ export interface SellerProduct {
   createdAt: string;
   updatedAt: string | null;
   seller: { id: string; name: string; };
+  images: ProductImage[];
+  specifications: ProductSpecification[];
+  priceTiers: PriceTier[];
+  variants: ProductVariant[];
 }
+// --- END: Updated Interfaces ---
+
 
 export default function SellerProductManagerPage() {
   const [products, setProducts] = useState<SellerProduct[]>([]);
@@ -99,6 +137,34 @@ export default function SellerProductManagerPage() {
         createdAt: p.createdAt,
         updatedAt: p.updatedAt,
         seller: p.seller,
+        // --- START: Map new detailed arrays ---
+        images: p.images?.map((img: any) => ({
+            id: img.id,
+            imageUrl: img.imageUrl,
+            altText: img.altText,
+            isPrimary: img.isPrimary,
+        })) || [],
+        specifications: p.specifications?.map((spec: any) => ({
+            id: spec.id,
+            specName: spec.specName,
+            specValue: spec.specValue,
+            unit: spec.unit,
+        })) || [],
+        priceTiers: p.priceTiers?.map((tier: any) => ({
+            id: tier.id,
+            minQuantity: tier.minQuantity,
+            maxQuantity: tier.maxQuantity,
+            pricePerUnit: tier.pricePerUnit,
+            isActive: tier.isActive
+        })) || [],
+        variants: p.variants?.map((variant: any) => ({
+            id: variant.id,
+            sku: variant.sku,
+            variantName: variant.variantName,
+            additionalPrice: variant.additionalPrice,
+            available: variant.available,
+        })) || [],
+        // --- END: Map new detailed arrays ---
       }));
 
       setProducts(fetchedProducts);
@@ -349,39 +415,86 @@ export default function SellerProductManagerPage() {
                           <TableRow className="bg-muted hover:bg-muted">
                             <TableCell colSpan={7} className="p-0">
                                 <div className="p-6">
-                                  <h4 className="font-headline text-lg mb-4">Additional Details for: {product.name}</h4>
-                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-4 text-sm">
-                                    <div className="space-y-1 lg:col-span-2">
-                                      <p className="font-semibold text-foreground">Description</p>
-                                      <p className="text-muted-foreground">{product.description || 'No description provided.'}</p>
+                                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-6">
+                                    {/* Column 1: Basic Info & Specs */}
+                                    <div className="space-y-6">
+                                      <div>
+                                        <h4 className="font-headline text-base mb-2">Product Details</h4>
+                                        <div className="space-y-2 text-sm">
+                                          <div className="grid grid-cols-2 gap-2">
+                                            <p className="font-semibold text-foreground">Description:</p>
+                                            <p className="text-muted-foreground col-span-2">{product.description || 'N/A'}</p>
+                                          </div>
+                                          <Separator/>
+                                          <div className="grid grid-cols-2 gap-2">
+                                            <p className="font-semibold text-foreground">Category:</p><p className="text-muted-foreground">{product.category?.name || 'Uncategorized'}</p>
+                                            <p className="font-semibold text-foreground">MOQ:</p><p className="text-muted-foreground">{product.minimumOrderQuantity} units</p>
+                                            <p className="font-semibold text-foreground">Bulk Only:</p><p className="text-muted-foreground">{product.isBulkOnly ? 'Yes' : 'No'}</p>
+                                            <p className="font-semibold text-foreground">Weight:</p><p className="text-muted-foreground">{product.weight ? `${product.weight} ${product.weightUnit || ''}`.trim() : 'N/A'}</p>
+                                            <p className="font-semibold text-foreground">Dimensions:</p><p className="text-muted-foreground">{product.dimensions || 'N/A'}</p>
+                                            <p className="font-semibold text-foreground">Date Added:</p><p className="text-muted-foreground">{new Date(product.createdAt).toLocaleString()}</p>
+                                            <p className="font-semibold text-foreground">Last Updated:</p><p className="text-muted-foreground">{product.updatedAt ? new Date(product.updatedAt).toLocaleString() : 'Not yet updated'}</p>
+                                          </div>
+                                        </div>
+                                      </div>
+                                      <Separator />
+                                      <div>
+                                        <h4 className="font-headline text-base mb-2">Specifications</h4>
+                                        {product.specifications.length > 0 ? (
+                                            <div className="space-y-1 text-sm">
+                                              {product.specifications.map(spec => (
+                                                <div key={spec.id} className="grid grid-cols-2 gap-2">
+                                                    <p className="font-medium text-foreground">{spec.specName}:</p>
+                                                    <p className="text-muted-foreground">{spec.specValue} {spec.unit || ''}</p>
+                                                </div>
+                                              ))}
+                                            </div>
+                                        ) : (<p className="text-sm text-muted-foreground">No specifications provided.</p>)}
+                                      </div>
                                     </div>
-                                     <div className="space-y-1">
-                                      <p className="font-semibold text-foreground">Category</p>
-                                      <p className="text-muted-foreground">{product.category?.name || 'Uncategorized'}</p>
-                                    </div>
-                                    <div className="space-y-1">
-                                      <p className="font-semibold text-foreground">MOQ</p>
-                                      <p className="text-muted-foreground">{product.minimumOrderQuantity} units</p>
-                                    </div>
-                                    <div className="space-y-1">
-                                      <p className="font-semibold text-foreground">Bulk Only</p>
-                                      <p className="text-muted-foreground">{product.isBulkOnly ? 'Yes' : 'No'}</p>
-                                    </div>
-                                    <div className="space-y-1">
-                                      <p className="font-semibold text-foreground">Weight</p>
-                                      <p className="text-muted-foreground">{product.weight ? `${product.weight} ${product.weightUnit || ''}`.trim() : 'N/A'}</p>
-                                    </div>
-                                    <div className="space-y-1">
-                                      <p className="font-semibold text-foreground">Dimensions</p>
-                                      <p className="text-muted-foreground">{product.dimensions || 'N/A'}</p>
-                                    </div>
-                                     <div className="space-y-1">
-                                      <p className="font-semibold text-foreground">Date Added</p>
-                                      <p className="text-muted-foreground">{new Date(product.createdAt).toLocaleString()}</p>
-                                    </div>
-                                    <div className="space-y-1">
-                                      <p className="font-semibold text-foreground">Last Updated</p>
-                                      <p className="text-muted-foreground">{product.updatedAt ? new Date(product.updatedAt).toLocaleString() : 'Not yet updated'}</p>
+                                    {/* Column 2: Variants, Tiers, Images */}
+                                    <div className="space-y-6">
+                                      <div>
+                                        <h4 className="font-headline text-base mb-2">Variants</h4>
+                                        {product.variants.length > 0 ? (
+                                          <Table className="bg-background">
+                                            <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>SKU</TableHead><TableHead>Add'l Price</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
+                                            <TableBody>
+                                              {product.variants.map(v => (
+                                                <TableRow key={v.id}><TableCell>{v.variantName || 'N/A'}</TableCell><TableCell>{v.sku}</TableCell><TableCell>${v.additionalPrice.toFixed(2)}</TableCell><TableCell>{v.available ? 'Available' : 'Unavailable'}</TableCell></TableRow>
+                                              ))}
+                                            </TableBody>
+                                          </Table>
+                                        ) : (<p className="text-sm text-muted-foreground">No variants defined.</p>)}
+                                      </div>
+                                      <Separator />
+                                      <div>
+                                        <h4 className="font-headline text-base mb-2">Price Tiers</h4>
+                                        {product.priceTiers.length > 0 ? (
+                                          <Table className="bg-background">
+                                            <TableHeader><TableRow><TableHead>Min Qty</TableHead><TableHead>Max Qty</TableHead><TableHead>Price/Unit</TableHead></TableRow></TableHeader>
+                                            <TableBody>
+                                              {product.priceTiers.map(t => (
+                                                <TableRow key={t.id}><TableCell>{t.minQuantity}</TableCell><TableCell>{t.maxQuantity || '...'}</TableCell><TableCell>${t.pricePerUnit.toFixed(2)}</TableCell></TableRow>
+                                              ))}
+                                            </TableBody>
+                                          </Table>
+                                        ) : (<p className="text-sm text-muted-foreground">No price tiers defined.</p>)}
+                                      </div>
+                                      <Separator />
+                                      <div>
+                                        <h4 className="font-headline text-base mb-2">Images</h4>
+                                        {product.images.length > 0 ? (
+                                            <ul className="text-sm space-y-1 list-disc list-inside">
+                                                {product.images.map(img => (
+                                                    <li key={img.id} className="text-muted-foreground truncate" title={img.imageUrl}>
+                                                        <a href={img.imageUrl} target="_blank" rel="noopener noreferrer" className="hover:text-primary underline">{img.imageUrl}</a>
+                                                        {img.isPrimary && <Badge variant="outline" className="ml-2">Primary</Badge>}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        ) : (<p className="text-sm text-muted-foreground">No images added.</p>)}
+                                      </div>
                                     </div>
                                   </div>
                                 </div>
