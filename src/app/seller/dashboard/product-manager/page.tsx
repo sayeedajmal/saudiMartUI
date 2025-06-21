@@ -39,6 +39,7 @@ export interface SellerProduct {
   weightUnit: string | null;
   dimensions: string | null;
   createdAt: string;
+  updatedAt: string | null;
   seller: { id: string; name: string; };
 }
 
@@ -96,6 +97,7 @@ export default function SellerProductManagerPage() {
         weightUnit: p.weightUnit,
         dimensions: p.dimensions,
         createdAt: p.createdAt,
+        updatedAt: p.updatedAt,
         seller: p.seller,
       }));
 
@@ -348,10 +350,14 @@ export default function SellerProductManagerPage() {
                             <TableCell colSpan={7} className="p-0">
                                 <div className="p-6">
                                   <h4 className="font-headline text-lg mb-4">Additional Details for: {product.name}</h4>
-                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-4 text-sm">
-                                    <div className="space-y-1">
+                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-4 text-sm">
+                                    <div className="space-y-1 lg:col-span-2">
                                       <p className="font-semibold text-foreground">Description</p>
                                       <p className="text-muted-foreground">{product.description || 'No description provided.'}</p>
+                                    </div>
+                                     <div className="space-y-1">
+                                      <p className="font-semibold text-foreground">Category</p>
+                                      <p className="text-muted-foreground">{product.category?.name || 'Uncategorized'}</p>
                                     </div>
                                     <div className="space-y-1">
                                       <p className="font-semibold text-foreground">MOQ</p>
@@ -369,9 +375,13 @@ export default function SellerProductManagerPage() {
                                       <p className="font-semibold text-foreground">Dimensions</p>
                                       <p className="text-muted-foreground">{product.dimensions || 'N/A'}</p>
                                     </div>
-                                    <div className="space-y-1">
+                                     <div className="space-y-1">
                                       <p className="font-semibold text-foreground">Date Added</p>
                                       <p className="text-muted-foreground">{new Date(product.createdAt).toLocaleString()}</p>
+                                    </div>
+                                    <div className="space-y-1">
+                                      <p className="font-semibold text-foreground">Last Updated</p>
+                                      <p className="text-muted-foreground">{product.updatedAt ? new Date(product.updatedAt).toLocaleString() : 'Not yet updated'}</p>
                                     </div>
                                   </div>
                                 </div>
