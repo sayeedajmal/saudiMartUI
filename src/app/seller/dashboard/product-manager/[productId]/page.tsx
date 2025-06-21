@@ -195,6 +195,12 @@ export default function ManageProductPage() {
       if (!response.ok) throw new Error(responseData.message || "Failed to fetch product data");
       
       const productData = responseData.data;
+      
+      if (!productData) {
+        throw new Error("Product data not found in API response.");
+      }
+
+      // This is the key part for populating the entire form in edit mode
       form.reset({
         name: productData.name || "",
         description: productData.description || "",
@@ -210,32 +216,34 @@ export default function ManageProductPage() {
         variants: productData.productVariants?.map((v: any) => ({
             id: v.id,
             sku: v.sku || '',
-            variant_name: v.variantName || '', // Map from backend
+            variant_name: v.variantName || '',
             additional_price: v.additionalPrice !== null && v.additionalPrice !== undefined ? parseFloat(String(v.additionalPrice)) : undefined,
             available: v.available === undefined ? true : v.available,
         })) || [],
         images: productData.productImages?.map((img: any) => ({
             id: img.id,
-            image_url: img.imageUrl || '', // Map from backend
-            alt_text: img.altText || '', // Map from backend
+            image_url: img.imageUrl || '',
+            alt_text: img.altText || '',
             display_order: img.displayOrder !== null && img.displayOrder !== undefined ? parseInt(String(img.displayOrder),10) : undefined,
-            is_primary: img.isPrimary || false, // Map from backend
+            is_primary: img.isPrimary || false,
         })) || [],
         specifications: productData.productSpecifications?.map((spec: any) => ({
             id: spec.id,
-            spec_name: spec.specName || '', // Map from backend
-            spec_value: spec.specValue || '', // Map from backend
+            spec_name: spec.specName || '',
+            spec_value: spec.specValue || '',
             unit: spec.unit || '',
             display_order: spec.displayOrder !== null && spec.displayOrder !== undefined ? parseInt(String(spec.displayOrder),10) : undefined,
         })) || [],
         priceTiers: productData.priceTiers?.map((tier: any) => ({
             id: tier.id,
-            min_quantity: tier.minQuantity || 1, // Map from backend
+            min_quantity: tier.minQuantity || 1,
             max_quantity: tier.maxQuantity !== null && tier.maxQuantity !== undefined ? parseInt(String(tier.maxQuantity),10) : undefined,
-            price_per_unit: tier.pricePerUnit !== null && tier.pricePerUnit !== undefined ? parseFloat(String(tier.pricePerUnit)) : undefined, // Map from backend
+            price_per_unit: tier.pricePerUnit !== null && tier.pricePerUnit !== undefined ? parseFloat(String(tier.pricePerUnit)) : undefined,
             is_active: tier.isActive === undefined ? true : tier.isActive,
         })) || [],
       });
+       if (!productData.productVariants?.length) toast({ title: "Note", description: "No variants found for this product." });
+       if (!productData.productImages?.length) toast({ title: "Note", description: "No images found for this product." });
 
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error fetching product data", description: error.message });
@@ -285,11 +293,8 @@ export default function ManageProductPage() {
       sku: values.sku,
       available: values.available,
       seller: sellerPayload,
-      // For PUT, we send the sub-entities as part of the main payload.
-      // The backend's PUT /products/{id} needs to handle these.
-      // For POST, we'll create sub-entities separately after main product creation.
       productVariants: values.variants?.map(v => ({ 
-          id: v.id, // Will be undefined for new variants
+          id: v.id,
           sku: v.sku, 
           variantName: v.variant_name || null, 
           additionalPrice: v.additional_price, 
@@ -332,7 +337,7 @@ export default function ManageProductPage() {
           throw new Error(serverMessage);
         }
         toast({ title: "Product Updated!", description: responseData.message || `Product "${values.name}" has been successfully updated.` });
-        // router.push('/seller/dashboard/product-manager');
+        router.push('/seller/dashboard/product-manager');
       } catch (error: any) {
         toast({ variant: "destructive", title: "Error Updating Product", description: error.message });
       }
@@ -421,12 +426,14 @@ export default function ManageProductPage() {
           if (allSubSuccessful) {
             toast({ title: "Product & Details Saved!", description: "All product information saved." });
             form.reset();
+            router.push('/seller/dashboard/product-manager');
           } else {
             toast({ title: "Partial Success", description: "Main product saved, but some details had issues. Check notifications." });
-            // Don't reset form if sub-entities failed, so user can retry or see what was entered
+            router.push(`/seller/dashboard/product-manager/${newlyCreatedProductId}`);
           }
-        } else { // Only main product creation, no sub-entities to add
+        } else {
             form.reset();
+            router.push('/seller/dashboard/product-manager');
         }
 
       } catch (error: any) {
@@ -600,4 +607,3 @@ export default function ManageProductPage() {
     </SidebarProvider>
   );
 }
-
