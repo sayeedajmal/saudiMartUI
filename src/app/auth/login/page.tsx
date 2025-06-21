@@ -106,12 +106,12 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="container mx-auto py-12 px-4 sm:px-6 lg:px-8 min-h-[calc(100vh-10rem)] flex items-center justify-center">
-      <div className="w-full max-w-5xl">
-        <div className="flex flex-col md:flex-row gap-8 lg:gap-12 items-stretch">
-          {/* Left Column: Banner */}
-          <div className="w-full md:w-1/2 flex flex-col justify-center order-1 md:order-none">
-            <div className="aspect-video relative rounded-lg overflow-hidden shadow-lg">
+    <div className="container mx-auto flex items-center p-10 justify-center">
+      <div className="w-full ">
+        <div className="flex flex-col md:flex-row gap-8 items-stretch">
+           {/* Left Column: Banner */}
+          <div className="w-[80vw] flex flex-col justify-center order-1 md:order-none">
+           <div className="aspect-video relative rounded-lg overflow-hidden shadow-lg">
               <Image
                 src={HeroSectionImg}
                 alt="SaudiMart B2B Platform - Professional Business Environment"
