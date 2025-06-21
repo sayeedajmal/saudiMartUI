@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Fragment } from 'react';
 import { useSelector } from 'react-redux';
 import {
   SidebarProvider,
@@ -15,7 +15,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { BotMessageSquare, LayoutDashboard, Package, ShoppingBag, BarChart3, Settings, MessageSquare, Warehouse, Truck, Bell, Shapes, PlusCircle, Edit3, Trash2, Loader2, Eye, Boxes, FileText } from "lucide-react";
+import { BotMessageSquare, LayoutDashboard, Package, ShoppingBag, BarChart3, Settings, MessageSquare, Warehouse, Truck, Bell, Shapes, PlusCircle, Edit3, Trash2, Loader2, Eye, Boxes, FileText, ChevronDown } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -25,44 +25,51 @@ import { useToast } from '@/hooks/use-toast';
 import { selectAccessToken, selectUser, type MyProfile } from '@/lib/redux/slices/userSlice';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
-export interface SellerProductListItem {
-  id: number; // Assuming ID is number from backend
+export interface SellerProduct {
+  id: number;
   name: string;
   sku: string;
-  category?: {
-    id: number; // Assuming ID is number
-    name: string;
-  } | null;
+  category: { id: number; name: string; } | null;
   basePrice: number | null;
   available: boolean;
-  // Add other fields from your backend 'Products' entity if needed for the list
+  description: string | null;
+  isBulkOnly: boolean;
+  minimumOrderQuantity: number;
+  weight: number | null;
+  weightUnit: string | null;
+  dimensions: string | null;
+  createdAt: string;
+  seller: { id: string; name: string; };
 }
 
 export default function SellerProductManagerPage() {
-  const [products, setProducts] = useState<SellerProductListItem[]>([]);
+  const [products, setProducts] = useState<SellerProduct[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [productToDelete, setProductToDelete] = useState<SellerProductListItem | null>(null);
+  const [productToDelete, setProductToDelete] = useState<SellerProduct | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [expandedRowId, setExpandedRowId] = useState<number | null>(null);
 
   const accessToken = useSelector(selectAccessToken);
   const currentUser = useSelector(selectUser) as MyProfile | null;
   const { toast } = useToast();
 
+  const handleToggleRow = (productId: number) => {
+    setExpandedRowId(currentId => (currentId === productId ? null : productId));
+  };
+
+
   const fetchSellerProducts = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     if (!accessToken || !currentUser?.id) {
-      // toast({ title: "Authentication Error", description: "Please log in to view your products.", variant: "destructive" });
-      setProducts([]); // Show no products if not logged in
+      setProducts([]); 
       setIsLoading(false);
       return;
     }
 
     try {
-      // Backend should ideally filter products by seller ID based on the token.
-      // If your GET /products endpoint doesn't do this, you might need a new endpoint like /products/seller/{sellerId} or /products/me
-      const response = await fetch('http://localhost:8080/products', { // This might fetch ALL products
+      const response = await fetch('http://localhost:8080/products', {
         headers: { 'Authorization': `Bearer ${accessToken}` },
       });
       
@@ -72,19 +79,24 @@ export default function SellerProductManagerPage() {
         throw new Error(responseData.message || 'Failed to fetch products');
       }
       
-      // Filter products on the client-side if backend doesn't filter by seller
-      // This is NOT ideal for performance or security with many products, but works for now.
-      // Backend filtering is strongly recommended.
       const allProducts: any[] = responseData.data || [];
       const sellerSpecificProducts = allProducts.filter(p => p.seller?.id?.toString() === currentUser.id);
       
-      const fetchedProducts: SellerProductListItem[] = sellerSpecificProducts.map((p: any) => ({
+      const fetchedProducts: SellerProduct[] = sellerSpecificProducts.map((p: any) => ({
         id: p.id,
         name: p.name,
         sku: p.sku,
         category: p.category ? { id: p.category.id, name: p.category.name } : null,
         basePrice: p.basePrice,
         available: p.available,
+        description: p.description,
+        isBulkOnly: p.isBulkOnly,
+        minimumOrderQuantity: p.minimumOrderQuantity,
+        weight: p.weight,
+        weightUnit: p.weightUnit,
+        dimensions: p.dimensions,
+        createdAt: p.createdAt,
+        seller: p.seller,
       }));
 
       setProducts(fetchedProducts);
@@ -105,15 +117,16 @@ export default function SellerProductManagerPage() {
   }, [accessToken, currentUser, toast]);
 
   useEffect(() => {
-    if (accessToken && currentUser) { // Ensure currentUser is available
+    if (accessToken && currentUser) {
         fetchSellerProducts();
     } else if (!accessToken || !currentUser) {
-        setProducts([]); // Clear products if user logs out or data isn't ready
+        setProducts([]);
         setIsLoading(false);
     }
   }, [accessToken, currentUser, fetchSellerProducts]);
 
-  const handleDeleteProduct = (product: SellerProductListItem) => {
+  const handleDeleteProduct = (e: React.MouseEvent, product: SellerProduct) => {
+    e.stopPropagation();
     setProductToDelete(product);
   };
 
@@ -134,7 +147,7 @@ export default function SellerProductManagerPage() {
 
       const responseData = await response.json();
 
-      if (!response.ok) { // Check for generic error too
+      if (!response.ok) {
         throw new Error(responseData.message || `Failed to delete product. Status: ${response.status}`);
       }
       
@@ -289,6 +302,7 @@ export default function SellerProductManagerPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-[50px]"></TableHead>
                       <TableHead>Name</TableHead>
                       <TableHead>SKU</TableHead>
                       <TableHead>Category</TableHead>
@@ -299,32 +313,72 @@ export default function SellerProductManagerPage() {
                   </TableHeader>
                   <TableBody>
                     {products.map((product) => (
-                      <TableRow key={product.id}>
-                        <TableCell className="font-medium max-w-xs truncate" title={product.name}>{product.name}</TableCell>
-                        <TableCell>{product.sku}</TableCell>
-                        <TableCell>{product.category?.name || 'N/A'}</TableCell>
-                        <TableCell>${typeof product.basePrice === 'number' ? product.basePrice.toFixed(2) : (product.basePrice || 'N/A')}</TableCell>
-                        <TableCell>
-                          <Badge variant={product.available ? "default" : "secondary"} className={product.available ? 'bg-green-500 hover:bg-green-600' : 'bg-red-500 hover:bg-red-600'}>
-                            {product.available ? "Available" : "Unavailable"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right space-x-2">
-                           <Button variant="outline" size="sm" asChild>
-                            <Link href={`/products/${product.id}`} target="_blank" title="View on storefront (uses ID, adjust if slug needed)">
-                              <Eye className="mr-1 h-3 w-3" /> 
-                            </Link>
-                          </Button>
-                          <Button variant="outline" size="sm" asChild>
-                            <Link href={`/seller/dashboard/product-manager/${product.id}`} title="Edit Product">
-                              <Edit3 className="mr-1 h-3 w-3" /> Edit
-                            </Link>
-                          </Button>
-                          <Button variant="destructive" size="sm" onClick={() => handleDeleteProduct(product)} title="Delete Product" disabled={isDeleting}>
-                            {isDeleting && productToDelete?.id === product.id ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Trash2 className="mr-1 h-3 w-3" />}
-                          </Button>
-                        </TableCell>
-                      </TableRow>
+                      <Fragment key={product.id}>
+                        <TableRow onClick={() => handleToggleRow(product.id)} className="cursor-pointer hover:bg-muted/50">
+                          <TableCell>
+                            <ChevronDown className={`h-4 w-4 transition-transform ${expandedRowId === product.id ? 'rotate-180' : ''}`} />
+                          </TableCell>
+                          <TableCell className="font-medium max-w-xs truncate" title={product.name}>{product.name}</TableCell>
+                          <TableCell>{product.sku}</TableCell>
+                          <TableCell>{product.category?.name || 'N/A'}</TableCell>
+                          <TableCell>${typeof product.basePrice === 'number' ? product.basePrice.toFixed(2) : (product.basePrice || 'N/A')}</TableCell>
+                          <TableCell>
+                            <Badge variant={product.available ? "default" : "secondary"} className={product.available ? 'bg-green-500 hover:bg-green-600' : 'bg-red-500 hover:bg-red-600'}>
+                              {product.available ? "Available" : "Unavailable"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right space-x-2">
+                            <Button variant="outline" size="sm" asChild onClick={e => e.stopPropagation()}>
+                                <Link href={`/products/${product.id}`} target="_blank" title="View on storefront">
+                                <Eye className="mr-1 h-3 w-3" />
+                                </Link>
+                            </Button>
+                            <Button variant="outline" size="sm" asChild onClick={e => e.stopPropagation()}>
+                                <Link href={`/seller/dashboard/product-manager/${product.id}`} title="Edit Product">
+                                <Edit3 className="mr-1 h-3 w-3" /> Edit
+                                </Link>
+                            </Button>
+                            <Button variant="destructive" size="sm" onClick={(e) => handleDeleteProduct(e, product)} title="Delete Product" disabled={isDeleting}>
+                                {isDeleting && productToDelete?.id === product.id ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Trash2 className="mr-1 h-3 w-3" />}
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                        {expandedRowId === product.id && (
+                          <TableRow className="bg-muted hover:bg-muted">
+                            <TableCell colSpan={7} className="p-0">
+                                <div className="p-6">
+                                  <h4 className="font-headline text-lg mb-4">Additional Details for: {product.name}</h4>
+                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-4 text-sm">
+                                    <div className="space-y-1">
+                                      <p className="font-semibold text-foreground">Description</p>
+                                      <p className="text-muted-foreground">{product.description || 'No description provided.'}</p>
+                                    </div>
+                                    <div className="space-y-1">
+                                      <p className="font-semibold text-foreground">MOQ</p>
+                                      <p className="text-muted-foreground">{product.minimumOrderQuantity} units</p>
+                                    </div>
+                                    <div className="space-y-1">
+                                      <p className="font-semibold text-foreground">Bulk Only</p>
+                                      <p className="text-muted-foreground">{product.isBulkOnly ? 'Yes' : 'No'}</p>
+                                    </div>
+                                    <div className="space-y-1">
+                                      <p className="font-semibold text-foreground">Weight</p>
+                                      <p className="text-muted-foreground">{product.weight ? `${product.weight} ${product.weightUnit || ''}`.trim() : 'N/A'}</p>
+                                    </div>
+                                    <div className="space-y-1">
+                                      <p className="font-semibold text-foreground">Dimensions</p>
+                                      <p className="text-muted-foreground">{product.dimensions || 'N/A'}</p>
+                                    </div>
+                                    <div className="space-y-1">
+                                      <p className="font-semibold text-foreground">Date Added</p>
+                                      <p className="text-muted-foreground">{new Date(product.createdAt).toLocaleString()}</p>
+                                    </div>
+                                  </div>
+                                </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </Fragment>
                     ))}
                   </TableBody>
                 </Table>
@@ -356,4 +410,3 @@ export default function SellerProductManagerPage() {
     </SidebarProvider>
   );
 }
-
