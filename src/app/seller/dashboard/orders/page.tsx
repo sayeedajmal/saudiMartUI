@@ -3,19 +3,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useSelector } from 'react-redux';
-import {
-  SidebarProvider,
-  Sidebar,
-  SidebarHeader,
-  SidebarContent,
-  SidebarMenu,
-  SidebarMenuItem,
-  SidebarMenuButton,
-  SidebarInset,
-  SidebarTrigger,
-} from "@/components/ui/sidebar";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { BotMessageSquare, LayoutDashboard, Package, ShoppingBag, BarChart3, Settings, MessageSquare, Warehouse, Truck, Bell, Shapes, Boxes, Eye, Loader2, FileText } from "lucide-react";
+import { SidebarTrigger } from "@/components/ui/sidebar";
+import { Eye, Loader2, ShoppingBag } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -62,7 +51,6 @@ const getStatusBadgeVariant = (status: OrderStatus) => {
   }
 };
 
-
 export default function SellerOrdersPage() {
   const [orders, setOrders] = useState<SellerOrderListItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -102,176 +90,83 @@ export default function SellerOrdersPage() {
   }, [fetchSellerOrders]);
 
   return (
-    <SidebarProvider>
-      <Sidebar collapsible="icon" className="shadow-lg">
-        <SidebarHeader className="p-4 justify-between items-center flex">
-          <Link href="/" className="flex items-center gap-2 group-data-[collapsible=icon]:hidden">
-            <h2 className="font-headline text-lg font-semibold text-sidebar-primary">SaudiMart</h2>
-          </Link>
-        </SidebarHeader>
-        <ScrollArea className="flex-1">
-        <SidebarContent>
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton href="/seller/dashboard" tooltip="Dashboard">
-                <LayoutDashboard />
-                <span>Dashboard</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton href="/seller/dashboard/product-manager" tooltip="Product Manager">
-                <Package />
-                <span>Product Manager</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton href="/seller/dashboard/inventory" tooltip="Inventory Management">
-                <Boxes />
-                <span>Inventory</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton href="/seller/dashboard/orders" isActive tooltip="Manage Orders">
-                <ShoppingBag />
-                <span>Manage Orders</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton href="/seller/dashboard/enquiries" tooltip="Manage Enquiries">
-                <MessageSquare />
-                <span>Manage Enquiries</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton href="/seller/dashboard/quotes" tooltip="Manage Quotes">
-                <FileText />
-                <span>Manage Quotes</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton href="/seller/dashboard/automated-enquiry-response" tooltip="AI Enquiry Response">
-                <BotMessageSquare />
-                <span>AI Enquiry Response</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton href="/seller/dashboard/category-management" tooltip="Category Management">
-                <Shapes />
-                <span>Category Management</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton href="/seller/dashboard/warehouses" tooltip="Manage Warehouses">
-                <Warehouse />
-                <span>Warehouses</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton href="/seller/dashboard/shipping-settings" tooltip="Shipping Settings">
-                <Truck />
-                <span>Shipping Settings</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton href="/seller/dashboard/notifications" tooltip="Notifications">
-                <Bell />
-                <span>Notifications</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton href="#" tooltip="Analytics">
-                <BarChart3 />
-                <span>Analytics</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-             <SidebarMenuItem>
-              <SidebarMenuButton href="#" tooltip="Settings">
-                <Settings />
-                <span>Settings</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarContent>
-        </ScrollArea>
-      </Sidebar>
-      <SidebarInset>
-        <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6 py-4">
-            <SidebarTrigger className="lg:hidden" />
-            <h1 className="font-headline text-2xl font-semibold">Manage Orders</h1>
-        </header>
-        <main className="flex-1 p-6">
-          <Card className="shadow-md">
-            <CardHeader>
-              <CardTitle className="font-headline">Your Orders</CardTitle>
-              <CardDescription>View and manage incoming orders from buyers.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {isLoading && (
-                <div className="flex justify-center items-center py-8">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                  <p className="ml-2 text-muted-foreground">Loading orders...</p>
-                </div>
-              )}
-              {!isLoading && error && (
-                <p className="text-destructive text-center py-8">{error}</p>
-              )}
-              {!isLoading && !error && orders.length === 0 && (
-                 <div className="text-center py-8">
-                  <ShoppingBag className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                  <p className="text-xl font-semibold text-muted-foreground mb-2">No orders found.</p>
-                  <p className="text-sm text-muted-foreground">
-                    You currently have no orders to display.
-                  </p>
-                </div>
-              )}
-              {!isLoading && !error && orders.length > 0 && (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Order #</TableHead>
-                      <TableHead>Buyer</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead className="text-right">Total</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
+    <>
+      <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6 py-4">
+          <SidebarTrigger className="lg:hidden" />
+          <h1 className="font-headline text-2xl font-semibold">Manage Orders</h1>
+      </header>
+      <main className="flex-1 p-6">
+        <Card className="shadow-md">
+          <CardHeader>
+            <CardTitle className="font-headline">Your Orders</CardTitle>
+            <CardDescription>View and manage incoming orders from buyers.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoading && (
+              <div className="flex justify-center items-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <p className="ml-2 text-muted-foreground">Loading orders...</p>
+              </div>
+            )}
+            {!isLoading && error && (
+              <p className="text-destructive text-center py-8">{error}</p>
+            )}
+            {!isLoading && !error && orders.length === 0 && (
+               <div className="text-center py-8">
+                <ShoppingBag className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                <p className="text-xl font-semibold text-muted-foreground mb-2">No orders found.</p>
+                <p className="text-sm text-muted-foreground">
+                  You currently have no orders to display.
+                </p>
+              </div>
+            )}
+            {!isLoading && !error && orders.length > 0 && (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Order #</TableHead>
+                    <TableHead>Buyer</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead className="text-right">Total</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {orders.map((order) => (
+                    <TableRow key={order.order_id}>
+                      <TableCell className="font-medium">{order.order_number}</TableCell>
+                      <TableCell>{order.buyer_name}</TableCell>
+                      <TableCell>{new Date(order.created_at).toLocaleDateString()}</TableCell>
+                      <TableCell className="text-right">${order.total_price.toFixed(2)}</TableCell>
+                      <TableCell>
+                        <Badge variant={getStatusBadgeVariant(order.status)}
+                               className={
+                                  order.status === 'DELIVERED' ? 'bg-green-500 hover:bg-green-600 text-white' : 
+                                  order.status === 'SHIPPED' ? 'bg-blue-500 hover:bg-blue-600 text-white' :
+                                  order.status === 'PENDING_APPROVAL' ? 'bg-yellow-500 hover:bg-yellow-600 text-black' :
+                                  order.status === 'PROCESSING' ? 'bg-orange-500 hover:bg-orange-600 text-white' :
+                                  ''
+                               }
+                        >
+                          {order.status.replace(/_/g, ' ')}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="outline" size="sm" asChild>
+                          <Link href={`/seller/dashboard/orders/${order.order_id}`}>
+                            <Eye className="mr-1 h-3 w-3" /> View Details
+                          </Link>
+                        </Button>
+                      </TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {orders.map((order) => (
-                      <TableRow key={order.order_id}>
-                        <TableCell className="font-medium">{order.order_number}</TableCell>
-                        <TableCell>{order.buyer_name}</TableCell>
-                        <TableCell>{new Date(order.created_at).toLocaleDateString()}</TableCell>
-                        <TableCell className="text-right">${order.total_price.toFixed(2)}</TableCell>
-                        <TableCell>
-                          <Badge variant={getStatusBadgeVariant(order.status)}
-                                 className={
-                                    order.status === 'DELIVERED' ? 'bg-green-500 hover:bg-green-600 text-white' : 
-                                    order.status === 'SHIPPED' ? 'bg-blue-500 hover:bg-blue-600 text-white' :
-                                    order.status === 'PENDING_APPROVAL' ? 'bg-yellow-500 hover:bg-yellow-600 text-black' :
-                                    order.status === 'PROCESSING' ? 'bg-orange-500 hover:bg-orange-600 text-white' :
-                                    ''
-                                 }
-                          >
-                            {order.status.replace(/_/g, ' ')}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button variant="outline" size="sm" asChild>
-                            <Link href={`/seller/dashboard/orders/${order.order_id}`}>
-                              <Eye className="mr-1 h-3 w-3" /> View Details
-                            </Link>
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-        </main>
-      </SidebarInset>
-    </SidebarProvider>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      </main>
+    </>
   );
 }

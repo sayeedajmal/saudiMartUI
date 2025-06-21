@@ -2,22 +2,11 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import {
-  SidebarProvider,
-  Sidebar,
-  SidebarHeader,
-  SidebarContent,
-  SidebarMenu,
-  SidebarMenuItem,
-  SidebarMenuButton,
-  SidebarInset,
-  SidebarTrigger,
-} from "@/components/ui/sidebar";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { BotMessageSquare, LayoutDashboard, Package, ShoppingBag, BarChart3, Settings, MessageSquare, Warehouse, Truck, Bell, Shapes, Boxes, ChevronLeft, Loader2, User, Home, Receipt, Edit2, FileText } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { SidebarTrigger } from "@/components/ui/sidebar";
+import { ChevronLeft, Loader2, User, Receipt, Edit2 } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -26,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from '@/hooks/use-toast';
 import { useSelector } from 'react-redux';
 import { selectAccessToken } from '@/lib/redux/slices/userSlice';
-import type { OrderStatus } from '../page'; // Assuming OrderStatus is exported from the list page
+import type { OrderStatus } from '../page';
 
 interface OrderItem {
   order_item_id: string;
@@ -37,7 +26,7 @@ interface OrderItem {
   quantity: number;
   price_per_unit: number;
   total_price: number;
-  sku: string; // Added for display
+  sku: string;
 }
 
 interface OrderAddress {
@@ -81,7 +70,6 @@ const getStatusBadgeVariant = (status: OrderStatus) => {
 
 const ALL_ORDER_STATUSES: OrderStatus[] = ['PENDING_APPROVAL', 'APPROVED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'REJECTED'];
 
-// Dummy data function for a single order detail
 const generateDummyOrderDetail = (orderId: string): SellerOrderDetail | undefined => {
   if (orderId === 'ord_001') {
     return {
@@ -112,10 +100,8 @@ const generateDummyOrderDetail = (orderId: string): SellerOrderDetail | undefine
   return undefined; 
 };
 
-
 export default function SellerOrderDetailPage() {
   const params = useParams();
-  const router = useRouter();
   const orderId = typeof params.orderId === 'string' ? params.orderId : '';
   
   const [order, setOrder] = useState<SellerOrderDetail | null>(null);
@@ -151,9 +137,8 @@ export default function SellerOrderDetailPage() {
     }
 
     try {
-      // TODO: Replace with actual API call: GET /orders/seller/{orderId}
       await new Promise(resolve => setTimeout(resolve, 1000)); 
-      const fetchedOrder = generateDummyOrderDetail(orderId); // Use dummy data for now
+      const fetchedOrder = generateDummyOrderDetail(orderId);
 
       if (fetchedOrder) {
         setOrder(fetchedOrder);
@@ -180,9 +165,8 @@ export default function SellerOrderDetailPage() {
       return;
     }
     setIsUpdatingStatus(true);
-    // TODO: Implement actual API call: PUT /orders/seller/{orderId}/status with body { status: selectedStatus }
     try {
-      await new Promise(resolve => setTimeout(resolve, 700)); // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 700)); 
       setOrder(prevOrder => prevOrder ? { ...prevOrder, status: selectedStatus } : null);
       toast({ title: "Status Updated (Simulated)", description: `Order ${order.order_number} status changed to ${selectedStatus.replace(/_/g, ' ')}.`});
     } catch (err: any) {
@@ -237,197 +221,168 @@ export default function SellerOrderDetailPage() {
     order.status === 'PROCESSING' ? 'bg-orange-500 hover:bg-orange-600 text-white' :
     '';
 
-
   return (
-    <SidebarProvider>
-      <Sidebar collapsible="icon" className="shadow-lg">
-         <SidebarHeader className="p-4 justify-between items-center flex">
-          <Link href="/" className="flex items-center gap-2 group-data-[collapsible=icon]:hidden">
-            <h2 className="font-headline text-lg font-semibold text-sidebar-primary">SaudiMart</h2>
+    <>
+      <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6 py-4">
+        <SidebarTrigger className="lg:hidden" />
+        <Button variant="outline" size="icon" className="h-8 w-8" asChild>
+          <Link href="/seller/dashboard/orders">
+            <ChevronLeft className="h-4 w-4" />
+            <span className="sr-only">Back to Orders</span>
           </Link>
-        </SidebarHeader>
-        <ScrollArea className="flex-1">
-        <SidebarContent>
-          <SidebarMenu>
-            <SidebarMenuItem><SidebarMenuButton href="/seller/dashboard" tooltip="Dashboard"><LayoutDashboard /><span>Dashboard</span></SidebarMenuButton></SidebarMenuItem>
-            <SidebarMenuItem><SidebarMenuButton href="/seller/dashboard/product-manager" tooltip="Product Manager"><Package /><span>Product Manager</span></SidebarMenuButton></SidebarMenuItem>
-            <SidebarMenuItem><SidebarMenuButton href="/seller/dashboard/inventory" tooltip="Inventory Management"><Boxes /><span>Inventory</span></SidebarMenuButton></SidebarMenuItem>
-            <SidebarMenuItem><SidebarMenuButton href="/seller/dashboard/orders" isActive tooltip="Manage Orders"><ShoppingBag /><span>Manage Orders</span></SidebarMenuButton></SidebarMenuItem>
-            <SidebarMenuItem><SidebarMenuButton href="/seller/dashboard/enquiries" tooltip="Manage Enquiries"><MessageSquare /><span>Manage Enquiries</span></SidebarMenuButton></SidebarMenuItem>
-            <SidebarMenuItem><SidebarMenuButton href="/seller/dashboard/quotes" tooltip="Manage Quotes"><FileText /><span>Manage Quotes</span></SidebarMenuButton></SidebarMenuItem>
-            <SidebarMenuItem><SidebarMenuButton href="/seller/dashboard/automated-enquiry-response" tooltip="AI Enquiry Response"><BotMessageSquare /><span>AI Enquiry Response</span></SidebarMenuButton></SidebarMenuItem>
-            <SidebarMenuItem><SidebarMenuButton href="/seller/dashboard/category-management" tooltip="Category Management"><Shapes /><span>Category Management</span></SidebarMenuButton></SidebarMenuItem>
-            <SidebarMenuItem><SidebarMenuButton href="/seller/dashboard/warehouses" tooltip="Manage Warehouses"><Warehouse /><span>Warehouses</span></SidebarMenuButton></SidebarMenuItem>
-            <SidebarMenuItem><SidebarMenuButton href="/seller/dashboard/shipping-settings" tooltip="Shipping Settings"><Truck /><span>Shipping Settings</span></SidebarMenuButton></SidebarMenuItem>
-            <SidebarMenuItem><SidebarMenuButton href="/seller/dashboard/notifications" tooltip="Notifications"><Bell /><span>Notifications</span></SidebarMenuButton></SidebarMenuItem>
-            <SidebarMenuItem><SidebarMenuButton href="#" tooltip="Analytics"><BarChart3 /><span>Analytics</span></SidebarMenuButton></SidebarMenuItem>
-            <SidebarMenuItem><SidebarMenuButton href="#" tooltip="Settings"><Settings /><span>Settings</span></SidebarMenuButton></SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarContent>
-        </ScrollArea>
-      </Sidebar>
-      <SidebarInset>
-        <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6 py-4">
-          <SidebarTrigger className="lg:hidden" />
-          <Button variant="outline" size="icon" className="h-8 w-8" asChild>
-            <Link href="/seller/dashboard/orders">
-              <ChevronLeft className="h-4 w-4" />
-              <span className="sr-only">Back to Orders</span>
-            </Link>
-          </Button>
-          <h1 className="font-headline text-xl md:text-2xl font-semibold">Order Details</h1>
-        </header>
-        <main className="flex-1 p-4 md:p-6 space-y-6">
-          <Card className="shadow-md">
-            <CardHeader className="flex flex-col md:flex-row md:justify-between md:items-center gap-2">
-              <div>
-                <CardTitle className="font-headline text-2xl">Order #{order.order_number}</CardTitle>
-                <CardDescription>
-                  Placed on: {new Date(order.created_at).toLocaleDateString()} by {order.buyer_name}
-                </CardDescription>
-              </div>
-              <div className="flex items-center gap-2">
-                 <span className="text-sm text-muted-foreground">Status:</span>
-                 <Badge variant={currentStatusBadgeVariant} className={currentStatusClassName}>
-                    {order.status.replace(/_/g, ' ')}
-                 </Badge>
-              </div>
+        </Button>
+        <h1 className="font-headline text-xl md:text-2xl font-semibold">Order Details</h1>
+      </header>
+      <main className="flex-1 p-4 md:p-6 space-y-6">
+        <Card className="shadow-md">
+          <CardHeader className="flex flex-col md:flex-row md:justify-between md:items-center gap-2">
+            <div>
+              <CardTitle className="font-headline text-2xl">Order #{order.order_number}</CardTitle>
+              <CardDescription>
+                Placed on: {new Date(order.created_at).toLocaleDateString()} by {order.buyer_name}
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+               <span className="text-sm text-muted-foreground">Status:</span>
+               <Badge variant={currentStatusBadgeVariant} className={currentStatusClassName}>
+                  {order.status.replace(/_/g, ' ')}
+               </Badge>
+            </div>
+          </CardHeader>
+           {order.purchase_order_number && (
+              <CardContent className="pt-0 pb-2">
+                  <p className="text-sm text-muted-foreground">PO Number: <span className="font-medium text-foreground">{order.purchase_order_number}</span></p>
+              </CardContent>
+          )}
+        </Card>
+
+        <div className="grid md:grid-cols-3 gap-6">
+          <Card className="md:col-span-2 shadow-md">
+            <CardHeader>
+              <CardTitle className="font-headline text-lg flex items-center"><Receipt className="mr-2 h-5 w-5 text-primary"/>Order Items</CardTitle>
             </CardHeader>
-             {order.purchase_order_number && (
-                <CardContent className="pt-0 pb-2">
-                    <p className="text-sm text-muted-foreground">PO Number: <span className="font-medium text-foreground">{order.purchase_order_number}</span></p>
-                </CardContent>
-            )}
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Product</TableHead>
+                    <TableHead>SKU</TableHead>
+                    <TableHead className="text-right">Qty</TableHead>
+                    <TableHead className="text-right">Unit Price</TableHead>
+                    <TableHead className="text-right">Total</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {order.items.map(item => (
+                    <TableRow key={item.order_item_id}>
+                      <TableCell>
+                        <div>{item.product_name}</div>
+                        {item.variant_name && <div className="text-xs text-muted-foreground">{item.variant_name}</div>}
+                      </TableCell>
+                      <TableCell>{item.sku}</TableCell>
+                      <TableCell className="text-right">{item.quantity}</TableCell>
+                      <TableCell className="text-right">${item.price_per_unit.toFixed(2)}</TableCell>
+                      <TableCell className="text-right">${item.total_price.toFixed(2)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              <Separator className="my-4" />
+              <div className="space-y-1 text-sm text-right">
+                  <div className="flex justify-between">
+                      <span className="text-muted-foreground">Subtotal:</span>
+                      <span className="font-medium">${order.subtotal.toFixed(2)}</span>
+                  </div>
+                   <div className="flex justify-between">
+                      <span className="text-muted-foreground">Shipping:</span>
+                      <span className="font-medium">${order.shipping_cost.toFixed(2)}</span>
+                  </div>
+                   <div className="flex justify-between">
+                      <span className="text-muted-foreground">Tax:</span>
+                      <span className="font-medium">${order.tax_amount.toFixed(2)}</span>
+                  </div>
+                   <div className="flex justify-between text-base font-semibold">
+                      <span>Grand Total:</span>
+                      <span>${order.total_price.toFixed(2)}</span>
+                  </div>
+              </div>
+            </CardContent>
           </Card>
 
-          <div className="grid md:grid-cols-3 gap-6">
-            <Card className="md:col-span-2 shadow-md">
-              <CardHeader>
-                <CardTitle className="font-headline text-lg flex items-center"><Receipt className="mr-2 h-5 w-5 text-primary"/>Order Items</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Product</TableHead>
-                      <TableHead>SKU</TableHead>
-                      <TableHead className="text-right">Qty</TableHead>
-                      <TableHead className="text-right">Unit Price</TableHead>
-                      <TableHead className="text-right">Total</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {order.items.map(item => (
-                      <TableRow key={item.order_item_id}>
-                        <TableCell>
-                          <div>{item.product_name}</div>
-                          {item.variant_name && <div className="text-xs text-muted-foreground">{item.variant_name}</div>}
-                        </TableCell>
-                        <TableCell>{item.sku}</TableCell>
-                        <TableCell className="text-right">{item.quantity}</TableCell>
-                        <TableCell className="text-right">${item.price_per_unit.toFixed(2)}</TableCell>
-                        <TableCell className="text-right">${item.total_price.toFixed(2)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-                <Separator className="my-4" />
-                <div className="space-y-1 text-sm text-right">
-                    <div className="flex justify-between">
-                        <span className="text-muted-foreground">Subtotal:</span>
-                        <span className="font-medium">${order.subtotal.toFixed(2)}</span>
-                    </div>
-                     <div className="flex justify-between">
-                        <span className="text-muted-foreground">Shipping:</span>
-                        <span className="font-medium">${order.shipping_cost.toFixed(2)}</span>
-                    </div>
-                     <div className="flex justify-between">
-                        <span className="text-muted-foreground">Tax:</span>
-                        <span className="font-medium">${order.tax_amount.toFixed(2)}</span>
-                    </div>
-                     <div className="flex justify-between text-base font-semibold">
-                        <span>Grand Total:</span>
-                        <span>${order.total_price.toFixed(2)}</span>
-                    </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <div className="space-y-6 md:col-span-1">
-                <Card className="shadow-md">
-                    <CardHeader>
-                        <CardTitle className="font-headline text-lg flex items-center"><Edit2 className="mr-2 h-5 w-5 text-primary"/>Update Order Status</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                        <Select value={selectedStatus} onValueChange={(value: OrderStatus) => setSelectedStatus(value)}>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Select new status" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {ALL_ORDER_STATUSES.map(statusValue => (
-                                <SelectItem key={statusValue} value={statusValue}>
-                                    {statusValue.replace(/_/g, ' ')}
-                                </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        <Button 
-                            onClick={handleUpdateStatus} 
-                            disabled={isUpdatingStatus || !selectedStatus || selectedStatus === order.status}
-                            className="w-full bg-accent text-accent-foreground hover:bg-accent/90"
-                        >
-                            {isUpdatingStatus && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Update Status
-                        </Button>
-                    </CardContent>
-                </Card>
-                <Card className="shadow-md">
-                    <CardHeader>
-                    <CardTitle className="font-headline text-lg flex items-center"><User className="mr-2 h-5 w-5 text-primary"/>Buyer & Shipping</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3 text-sm">
-                        <div>
-                            <h4 className="font-semibold mb-0.5">Shipping Address:</h4>
-                            {order.shipping_address.company_name && <p className="text-muted-foreground">{order.shipping_address.company_name}</p>}
-                            <p className="text-muted-foreground">{order.shipping_address.street_address_1}</p>
-                            {order.shipping_address.street_address_2 && <p className="text-muted-foreground">{order.shipping_address.street_address_2}</p>}
-                            <p className="text-muted-foreground">{order.shipping_address.city}, {order.shipping_address.state} {order.shipping_address.postal_code}</p>
-                            <p className="text-muted-foreground">{order.shipping_address.country}</p>
-                        </div>
-                        <Separator />
-                         <div>
-                            <h4 className="font-semibold mb-0.5">Billing Address:</h4>
-                             {order.billing_address.company_name && <p className="text-muted-foreground">{order.billing_address.company_name}</p>}
-                            <p className="text-muted-foreground">{order.billing_address.street_address_1}</p>
-                            {order.billing_address.street_address_2 && <p className="text-muted-foreground">{order.billing_address.street_address_2}</p>}
-                            <p className="text-muted-foreground">{order.billing_address.city}, {order.billing_address.state} {order.billing_address.postal_code}</p>
-                            <p className="text-muted-foreground">{order.billing_address.country}</p>
-                        </div>
-                         {order.payment_method && (
-                            <>
-                                <Separator />
-                                <div>
-                                    <h4 className="font-semibold mb-0.5">Payment Method:</h4>
-                                    <p className="text-muted-foreground">{order.payment_method.replace(/_/g, ' ')}</p>
-                                </div>
-                            </>
-                         )}
-                    </CardContent>
-                </Card>
-                {order.notes && (
-                    <Card className="shadow-md">
-                        <CardHeader>
-                            <CardTitle className="font-headline text-lg">Order Notes</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <p className="text-sm text-muted-foreground whitespace-pre-wrap">{order.notes}</p>
-                        </CardContent>
-                    </Card>
-                )}
-            </div>
+          <div className="space-y-6 md:col-span-1">
+              <Card className="shadow-md">
+                  <CardHeader>
+                      <CardTitle className="font-headline text-lg flex items-center"><Edit2 className="mr-2 h-5 w-5 text-primary"/>Update Order Status</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                      <Select value={selectedStatus} onValueChange={(value: OrderStatus) => setSelectedStatus(value)}>
+                          <SelectTrigger>
+                              <SelectValue placeholder="Select new status" />
+                          </SelectTrigger>
+                          <SelectContent>
+                              {ALL_ORDER_STATUSES.map(statusValue => (
+                              <SelectItem key={statusValue} value={statusValue}>
+                                  {statusValue.replace(/_/g, ' ')}
+                              </SelectItem>
+                              ))}
+                          </SelectContent>
+                      </Select>
+                      <Button 
+                          onClick={handleUpdateStatus} 
+                          disabled={isUpdatingStatus || !selectedStatus || selectedStatus === order.status}
+                          className="w-full bg-accent text-accent-foreground hover:bg-accent/90"
+                      >
+                          {isUpdatingStatus && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                          Update Status
+                      </Button>
+                  </CardContent>
+              </Card>
+              <Card className="shadow-md">
+                  <CardHeader>
+                  <CardTitle className="font-headline text-lg flex items-center"><User className="mr-2 h-5 w-5 text-primary"/>Buyer & Shipping</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3 text-sm">
+                      <div>
+                          <h4 className="font-semibold mb-0.5">Shipping Address:</h4>
+                          {order.shipping_address.company_name && <p className="text-muted-foreground">{order.shipping_address.company_name}</p>}
+                          <p className="text-muted-foreground">{order.shipping_address.street_address_1}</p>
+                          {order.shipping_address.street_address_2 && <p className="text-muted-foreground">{order.shipping_address.street_address_2}</p>}
+                          <p className="text-muted-foreground">{order.shipping_address.city}, {order.shipping_address.state} {order.shipping_address.postal_code}</p>
+                          <p className="text-muted-foreground">{order.shipping_address.country}</p>
+                      </div>
+                      <Separator />
+                       <div>
+                          <h4 className="font-semibold mb-0.5">Billing Address:</h4>
+                           {order.billing_address.company_name && <p className="text-muted-foreground">{order.billing_address.company_name}</p>}
+                          <p className="text-muted-foreground">{order.billing_address.street_address_1}</p>
+                          {order.billing_address.street_address_2 && <p className="text-muted-foreground">{order.billing_address.street_address_2}</p>}
+                          <p className="text-muted-foreground">{order.billing_address.city}, {order.billing_address.state} {order.billing_address.postal_code}</p>
+                          <p className="text-muted-foreground">{order.billing_address.country}</p>
+                      </div>
+                       {order.payment_method && (
+                          <>
+                              <Separator />
+                              <div>
+                                  <h4 className="font-semibold mb-0.5">Payment Method:</h4>
+                                  <p className="text-muted-foreground">{order.payment_method.replace(/_/g, ' ')}</p>
+                              </div>
+                          </>
+                       )}
+                  </CardContent>
+              </Card>
+              {order.notes && (
+                  <Card className="shadow-md">
+                      <CardHeader>
+                          <CardTitle className="font-headline text-lg">Order Notes</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                          <p className="text-sm text-muted-foreground whitespace-pre-wrap">{order.notes}</p>
+                      </CardContent>
+                  </Card>
+              )}
           </div>
-        </main>
-      </SidebarInset>
-    </SidebarProvider>
+        </div>
+      </main>
+    </>
   );
 }
