@@ -26,8 +26,6 @@ export interface SellerCategory {
   imageUrl: string | null;
   isActive: boolean;
   createdAt?: string;
-  parentCategory?: { id: number; name: string; } | null;
-  childCategories?: any[];
 }
 
 export default function SellerCategoryManagementPage() {
@@ -91,8 +89,6 @@ export default function SellerCategoryManagementPage() {
         imageUrl: cat.imageUrl,
         isActive: cat.isActive,
         createdAt: cat.createdAt,
-        parentCategory: cat.parentCategory,
-        childCategories: cat.childCategories,
       }));
       setCategories(fetchedCategories);
       if (fetchedCategories.length === 0 && (currentSearchTerm || currentStatusFilter !== 'all')) {

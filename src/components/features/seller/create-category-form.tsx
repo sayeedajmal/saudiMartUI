@@ -69,7 +69,6 @@ export function CreateCategoryForm({ onSuccess, onCancel }: CreateCategoryFormPr
         imageUrl: values.imageUrl,
         description: values.description || null, 
         isActive: values.isActive,
-        parentCategory: null, 
       };
 
       const response = await fetch('http://localhost:8080/categories', {
@@ -156,14 +155,6 @@ export function CreateCategoryForm({ onSuccess, onCancel }: CreateCategoryFormPr
           )}
         />
 
-        <FormItem>
-          <FormLabel>Parent Category</FormLabel>
-          <Input value="None (Creates a Top-level category)" disabled className="bg-muted/50" />
-          <FormDescription>
-            This form creates top-level categories. Sub-category creation can be managed via editing a category (future feature).
-          </FormDescription>
-        </FormItem>
-        
         <FormField
           control={form.control}
           name="isActive"
