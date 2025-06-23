@@ -26,9 +26,9 @@ import type { SellerCategory } from '@/app/seller/dashboard/category-management/
 
 const editCategorySchema = z.object({
   name: z.string().min(3, { message: "Category name must be at least 3 characters." }).max(100, { message: "Category name must be 100 characters or less." }),
+  imageUrl: z.string().url({ message: "Please enter a valid image URL." }).min(1, "Image URL is required."),
   description: z.string().min(10, { message: "Description must be at least 10 characters." }).max(500, { message: "Description must be 500 characters or less." }).optional().nullable(),
   isActive: z.boolean().default(true),
-  // parentCategory is not directly editable in this form for simplicity, but its info might be needed for PUT payload.
 });
 
 type EditCategoryFormValues = z.infer<typeof editCategorySchema>;
@@ -48,6 +48,7 @@ export function EditCategoryForm({ initialData, onSuccess, onCancel }: EditCateg
     resolver: zodResolver(editCategorySchema),
     defaultValues: {
       name: initialData.name || "",
+      imageUrl: initialData.imageUrl || "",
       description: initialData.description || "",
       isActive: initialData.isActive === undefined ? true : initialData.isActive,
     },
@@ -56,6 +57,7 @@ export function EditCategoryForm({ initialData, onSuccess, onCancel }: EditCateg
   useEffect(() => {
     form.reset({
       name: initialData.name || "",
+      imageUrl: initialData.imageUrl || "",
       description: initialData.description || "",
       isActive: initialData.isActive === undefined ? true : initialData.isActive,
     });
@@ -82,18 +84,15 @@ export function EditCategoryForm({ initialData, onSuccess, onCancel }: EditCateg
 
     setIsLoading(true);
     try {
-      // Construct the payload for the PUT request.
-      // Your backend expects a Category object.
-      // Send original parentCategory and childCategories if they are part of the expected PUT payload
-      // and not being modified by this form.
       const payload = {
         id: initialData.id,
         name: values.name,
+        imageUrl: values.imageUrl,
         description: values.description || null,
         isActive: values.isActive,
-        parentCategory: initialData.parentCategory ? { id: initialData.parentCategory.id, name: initialData.parentCategory.name /* other fields if needed by backend */ } : null,
-        childCategories: initialData.childCategories || [], // Send original or empty array
-        createdAt: initialData.createdAt, // Preserve original createdAt
+        parentCategory: initialData.parentCategory ? { id: initialData.parentCategory.id } : null,
+        childCategories: initialData.childCategories || [],
+        createdAt: initialData.createdAt,
       };
       
       const response = await fetch(`http://localhost:8080/categories/${initialData.id}`, {
@@ -141,6 +140,19 @@ export function EditCategoryForm({ initialData, onSuccess, onCancel }: EditCateg
               <FormLabel htmlFor="name">Category Name</FormLabel>
               <FormControl>
                 <Input id="name" placeholder="e.g., Electronics, Construction Materials" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="imageUrl"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel htmlFor="imageUrl">Image URL</FormLabel>
+              <FormControl>
+                <Input id="imageUrl" placeholder="https://example.com/image.png" {...field} value={field.value ?? ''} />
               </FormControl>
               <FormMessage />
             </FormItem>

@@ -25,6 +25,7 @@ import { selectAccessToken } from '@/lib/redux/slices/userSlice';
 
 const createCategorySchema = z.object({
   name: z.string().min(3, { message: "Category name must be at least 3 characters." }).max(100, { message: "Category name must be 100 characters or less." }),
+  imageUrl: z.string().url({ message: "Please enter a valid image URL." }).min(1, "Image URL is required."),
   description: z.string().min(10, { message: "Description must be at least 10 characters." }).max(500, { message: "Description must be 500 characters or less." }).optional().nullable(),
   isActive: z.boolean().default(true),
 });
@@ -45,6 +46,7 @@ export function CreateCategoryForm({ onSuccess, onCancel }: CreateCategoryFormPr
     resolver: zodResolver(createCategorySchema),
     defaultValues: {
       name: "",
+      imageUrl: "",
       description: "",
       isActive: true,
     },
@@ -64,6 +66,7 @@ export function CreateCategoryForm({ onSuccess, onCancel }: CreateCategoryFormPr
     try {
       const payload = {
         name: values.name,
+        imageUrl: values.imageUrl,
         description: values.description || null, 
         isActive: values.isActive,
         parentCategory: null, 
@@ -115,6 +118,19 @@ export function CreateCategoryForm({ onSuccess, onCancel }: CreateCategoryFormPr
               <FormLabel htmlFor="name">Category Name</FormLabel>
               <FormControl>
                 <Input id="name" placeholder="e.g., Electronics, Construction Materials" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="imageUrl"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel htmlFor="imageUrl">Image URL</FormLabel>
+              <FormControl>
+                <Input id="imageUrl" placeholder="https://example.com/image.png" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>

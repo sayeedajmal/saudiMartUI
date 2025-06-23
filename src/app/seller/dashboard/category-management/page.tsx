@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { RefreshCw, Search, FilterIcon, XCircle, Shapes, PlusCircle, Edit3, Trash2, Loader2 } from "lucide-react";
+import { RefreshCw, Search, FilterIcon, XCircle, Shapes, PlusCircle, Edit3, Trash2, Loader2, Image as ImageIcon } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,13 +17,17 @@ import { EditCategoryForm } from "@/components/features/seller/edit-category-for
 import { selectAccessToken } from '@/lib/redux/slices/userSlice';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 export interface SellerCategory {
   id: number;
   name: string;
   description: string | null;
+  imageUrl: string | null;
   isActive: boolean;
   createdAt?: string;
+  parentCategory?: { id: number; name: string; } | null;
+  childCategories?: any[];
 }
 
 export default function SellerCategoryManagementPage() {
@@ -84,8 +88,11 @@ export default function SellerCategoryManagementPage() {
         id: cat.id,
         name: cat.name,
         description: cat.description,
+        imageUrl: cat.imageUrl,
         isActive: cat.isActive,
         createdAt: cat.createdAt,
+        parentCategory: cat.parentCategory,
+        childCategories: cat.childCategories,
       }));
       setCategories(fetchedCategories);
       if (fetchedCategories.length === 0 && (currentSearchTerm || currentStatusFilter !== 'all')) {
@@ -241,6 +248,7 @@ export default function SellerCategoryManagementPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-[80px]">Image</TableHead>
                     <TableHead>Name</TableHead>
                     <TableHead>Description</TableHead>
                     <TableHead>Status</TableHead>
@@ -250,6 +258,12 @@ export default function SellerCategoryManagementPage() {
                 <TableBody>
                   {categories.map((category) => (
                     <TableRow key={category.id}>
+                      <TableCell>
+                        <Avatar className="h-12 w-12 rounded-md">
+                          <AvatarImage src={category.imageUrl || undefined} alt={category.name} className="object-cover" />
+                          <AvatarFallback className="rounded-md"><ImageIcon className="h-6 w-6 text-muted-foreground"/></AvatarFallback>
+                        </Avatar>
+                      </TableCell>
                       <TableCell className="font-medium">{category.name}</TableCell>
                       <TableCell className="text-sm text-muted-foreground max-w-xs truncate" title={category.description || ''}>{category.description || 'N/A'}</TableCell>
                       <TableCell>
