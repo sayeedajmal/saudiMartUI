@@ -18,6 +18,7 @@ import { selectAccessToken } from '@/lib/redux/slices/userSlice';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { API_BASE_URL } from '@/lib/api';
 
 export interface SellerCategory {
   id: number;
@@ -54,7 +55,7 @@ export default function SellerCategoryManagementPage() {
       return;
     }
 
-    let url = 'http://localhost:8080/categories';
+    let url = `${API_BASE_URL}/categories`;
     const params = new URLSearchParams();
 
     if (currentSearchTerm.trim() !== '') {
@@ -138,7 +139,7 @@ export default function SellerCategoryManagementPage() {
     }
     setIsDeleting(true); 
     try {
-      const response = await fetch(`http://localhost:8080/categories/${categoryToDelete.id}`, {
+      const response = await fetch(`${API_BASE_URL}/categories/${categoryToDelete.id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${accessToken}`,

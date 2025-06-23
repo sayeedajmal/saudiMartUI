@@ -29,6 +29,7 @@ import { Separator } from "@/components/ui/separator";
 import { useSelector } from 'react-redux';
 import { selectAccessToken, selectUser, type MyProfile } from '@/lib/redux/slices/userSlice';
 import { useParams, useRouter } from 'next/navigation';
+import { API_BASE_URL } from '@/lib/api';
 
 interface FetchedCategory {
   id: number;
@@ -145,7 +146,7 @@ export default function ManageProductPage() {
     if (!accessToken) return;
     setIsLoadingCategories(true);
     try {
-      const response = await fetch('http://localhost:8080/categories?isActive=true', {
+      const response = await fetch(`${API_BASE_URL}/categories?isActive=true`, {
         headers: { 'Authorization': `Bearer ${accessToken}` },
       });
       const responseData = await response.json();
@@ -167,7 +168,7 @@ export default function ManageProductPage() {
     }
     setIsLoadingData(true);
     try {
-      const response = await fetch(`http://localhost:8080/products/${idToFetch}`, {
+      const response = await fetch(`${API_BASE_URL}/products/${idToFetch}`, {
         headers: { 'Authorization': `Bearer ${accessToken}` },
       });
       const responseData = await response.json();
@@ -272,7 +273,7 @@ export default function ManageProductPage() {
 
     if (isEditMode) {
       try {
-        const response = await fetch(`http://localhost:8080/products/${productId}`, {
+        const response = await fetch(`${API_BASE_URL}/products/${productId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
           body: JSON.stringify(apiPayload),
@@ -289,7 +290,7 @@ export default function ManageProductPage() {
       }
     } else {
       try {
-        const productResponse = await fetch('http://localhost:8080/products', {
+        const productResponse = await fetch(`${API_BASE_URL}/products`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
           body: JSON.stringify({ ...apiPayload, productVariants: undefined, productImages: undefined, productSpecifications: undefined, priceTiers: undefined }),

@@ -31,6 +31,7 @@ import { useDispatch } from 'react-redux';
 import { setLoading, signupSuccess, authError, type SignupResponseData } from '@/lib/redux/slices/userSlice';
 import { useRouter } from 'next/navigation';
 import HeroSectionImg from "../../../assets/HeroSectionImage.png";
+import { API_BASE_URL } from '@/lib/api';
 
 
 const loginSchema = z.object({
@@ -59,7 +60,7 @@ export default function LoginPage() {
   const onSubmit = async (values: LoginFormValues) => {
     dispatch(setLoading());
     try {
-      const response = await fetch('http://localhost:8080/authen/login', {
+      const response = await fetch(`${API_BASE_URL}/authen/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

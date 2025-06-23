@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { selectAccessToken, selectUser, type MyProfile } from '@/lib/redux/slices/userSlice';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Separator } from '@/components/ui/separator';
+import { API_BASE_URL } from '@/lib/api';
 
 interface ProductImage {
   id: number;
@@ -93,7 +94,7 @@ export default function SellerProductManagerPage() {
     }
 
     try {
-      const response = await fetch('http://localhost:8080/products', {
+      const response = await fetch(`${API_BASE_URL}/products`, {
         headers: { 'Authorization': `Bearer ${accessToken}` },
       });
       
@@ -190,7 +191,7 @@ export default function SellerProductManagerPage() {
     }
     setIsDeleting(true);
     try {
-      const response = await fetch(`http://localhost:8080/products/${productToDelete.id}`, {
+      const response = await fetch(`${API_BASE_URL}/products/${productToDelete.id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${accessToken}` },
       });

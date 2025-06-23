@@ -22,7 +22,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { useSelector } from 'react-redux';
 import { selectAccessToken } from '@/lib/redux/slices/userSlice';
-import type { SellerCategory } from '@/app/seller/dashboard/category-management/page';
+import type { AdminCategory } from '@/app/admin/category-management/page';
+import { API_BASE_URL } from '@/lib/api';
 
 const editCategorySchema = z.object({
   name: z.string().min(3, { message: "Category name must be at least 3 characters." }).max(100, { message: "Category name must be 100 characters or less." }),
@@ -34,7 +35,7 @@ const editCategorySchema = z.object({
 type EditCategoryFormValues = z.infer<typeof editCategorySchema>;
 
 interface EditCategoryFormProps {
-  initialData: SellerCategory;
+  initialData: AdminCategory; // Using AdminCategory as it's more complete
   onSuccess?: () => void;
   onCancel?: () => void;
 }
@@ -91,11 +92,9 @@ export function EditCategoryForm({ initialData, onSuccess, onCancel }: EditCateg
         description: values.description || null,
         isActive: values.isActive,
         parentCategory: initialData.parentCategory ? { id: initialData.parentCategory.id } : null,
-        childCategories: initialData.childCategories || [],
-        createdAt: initialData.createdAt,
       };
       
-      const response = await fetch(`http://localhost:8080/categories/${initialData.id}`, {
+      const response = await fetch(`${API_BASE_URL}/categories/${initialData.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

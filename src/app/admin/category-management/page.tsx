@@ -27,6 +27,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { CreateCategoryForm } from '@/components/features/seller/create-category-form';
 import { EditCategoryForm } from '@/components/features/seller/edit-category-form';
+import { API_BASE_URL } from '@/lib/api';
 
 export interface AdminCategory {
   id: number;
@@ -65,7 +66,7 @@ export default function CategoryManagementPage() {
     }
     
     try {
-      const response = await fetch('http://localhost:8080/categories', {
+      const response = await fetch(`${API_BASE_URL}/categories`, {
         headers: { 'Authorization': `Bearer ${accessToken}` },
       });
       const responseData = await response.json();
@@ -99,7 +100,7 @@ export default function CategoryManagementPage() {
     if (!categoryToDelete || !accessToken) return;
     setIsDeleting(true);
     try {
-      const response = await fetch(`http://localhost:8080/categories/${categoryToDelete.id}`, {
+      const response = await fetch(`${API_BASE_URL}/categories/${categoryToDelete.id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${accessToken}` },
       });

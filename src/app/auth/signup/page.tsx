@@ -39,6 +39,7 @@ import { useDispatch } from 'react-redux';
 import { setLoading, signupSuccess, authError, type SignupResponseData } from '@/lib/redux/slices/userSlice';
 import Image from "next/image";
 import HeroSectionImg from "../../../assets/HeroSectionImage.png"
+import { API_BASE_URL } from '@/lib/api';
 
 
 const signupSchema = z.object({
@@ -96,7 +97,7 @@ export default function SignupPage() {
         role: values.role.toUpperCase(), 
       };
 
-      const response = await fetch('http://localhost:8080/authen/signup', {
+      const response = await fetch(`${API_BASE_URL}/authen/signup`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

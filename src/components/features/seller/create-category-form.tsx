@@ -22,6 +22,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { useSelector } from 'react-redux';
 import { selectAccessToken } from '@/lib/redux/slices/userSlice';
+import { API_BASE_URL } from '@/lib/api';
 
 const createCategorySchema = z.object({
   name: z.string().min(3, { message: "Category name must be at least 3 characters." }).max(100, { message: "Category name must be 100 characters or less." }),
@@ -71,7 +72,7 @@ export function CreateCategoryForm({ onSuccess, onCancel }: CreateCategoryFormPr
         isActive: values.isActive,
       };
 
-      const response = await fetch('http://localhost:8080/categories', {
+      const response = await fetch(`${API_BASE_URL}/categories`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

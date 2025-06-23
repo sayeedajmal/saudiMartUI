@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import { API_BASE_URL } from '@/lib/api';
 
 interface Category {
   id: number;
@@ -18,7 +19,7 @@ const createSlug = (name: string) => {
 
 async function getActiveCategories() {
     try {
-        const response = await fetch('http://localhost:8080/categories?isActive=true', {
+        const response = await fetch(`${API_BASE_URL}/categories?isActive=true`, {
             cache: 'no-store', // Fetches fresh data on each request
         });
         if (!response.ok) {
