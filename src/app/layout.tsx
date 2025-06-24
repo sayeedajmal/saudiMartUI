@@ -33,7 +33,7 @@ export default function RootLayout({
             storageKey="saudimart-theme"
           >
             <Header />
-            <main className="flex-grow content-center h-screen">
+            <main className="flex-grow">
               {children}
             </main>
             <Footer />
