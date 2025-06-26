@@ -30,20 +30,22 @@ interface ProductSpecification {
   unit: string | null;
 }
 
-interface ProductVariant {
-  id: number;
-  sku: string;
-  variantName: string | null;
-  additionalPrice: number;
-  available: boolean;
-}
-
 interface PriceTier {
   id: number;
   minQuantity: number;
   maxQuantity: number | null;
   pricePerUnit: number;
   isActive: boolean;
+}
+
+interface ProductVariant {
+  id: number;
+  sku: string;
+  variantName: string | null;
+  basePrice: number | null;
+  additionalPrice: number;
+  available: boolean;
+  priceTiers: PriceTier[];
 }
 
 export interface SellerProduct {
@@ -64,7 +66,6 @@ export interface SellerProduct {
   seller: { id: string; name: string; };
   images: ProductImage[];
   specifications: ProductSpecification[];
-  priceTiers: PriceTier[];
   variants: ProductVariant[];
 }
 
@@ -122,31 +123,32 @@ export default function SellerProductManagerPage() {
         createdAt: p.createdAt,
         updatedAt: p.updatedAt,
         seller: p.seller,
-        images: p.images?.map((img: any) => ({
+        images: p.productImages?.map((img: any) => ({
             id: img.id,
             imageUrl: img.imageUrl,
             altText: img.altText,
             isPrimary: img.isPrimary,
         })) || [],
-        specifications: p.specifications?.map((spec: any) => ({
+        specifications: p.productSpecifications?.map((spec: any) => ({
             id: spec.id,
             specName: spec.specName,
             specValue: spec.specValue,
             unit: spec.unit,
         })) || [],
-        priceTiers: p.priceTiers?.map((tier: any) => ({
-            id: tier.id,
-            minQuantity: tier.minQuantity,
-            maxQuantity: tier.maxQuantity,
-            pricePerUnit: tier.pricePerUnit,
-            isActive: tier.isActive
-        })) || [],
         variants: p.variants?.map((variant: any) => ({
             id: variant.id,
             sku: variant.sku,
             variantName: variant.variantName,
+            basePrice: variant.basePrice,
             additionalPrice: variant.additionalPrice,
             available: variant.available,
+            priceTiers: variant.priceTiers?.map((tier: any) => ({
+              id: tier.id,
+              minQuantity: tier.minQuantity,
+              maxQuantity: tier.maxQuantity,
+              pricePerUnit: tier.pricePerUnit,
+              isActive: tier.isActive,
+            })) || []
         })) || [],
       }));
 
@@ -319,7 +321,6 @@ export default function SellerProductManagerPage() {
                                         </div>
                                       </div>
                                     </div>
-                                    <Separator />
                                     <div>
                                       <h4 className="font-headline text-base mb-2">Specifications</h4>
                                       {product.specifications.length > 0 ? (
@@ -338,31 +339,30 @@ export default function SellerProductManagerPage() {
                                     <div>
                                       <h4 className="font-headline text-base mb-2">Variants</h4>
                                       {product.variants.length > 0 ? (
-                                        <Table className="bg-background">
-                                          <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>SKU</TableHead><TableHead>Add'l Price</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
-                                          <TableBody>
+                                        <div className="space-y-4">
                                             {product.variants.map(v => (
-                                              <TableRow key={v.id}><TableCell>{v.variantName || 'N/A'}</TableCell><TableCell>{v.sku}</TableCell><TableCell>${v.additionalPrice.toFixed(2)}</TableCell><TableCell>{v.available ? 'Available' : 'Unavailable'}</TableCell></TableRow>
+                                                <Card key={v.id} className="p-3 bg-background/50">
+                                                    <p className="font-semibold">{v.variantName || 'Default Variant'}</p>
+                                                    <p className="text-sm text-muted-foreground">SKU: {v.sku}</p>
+                                                    <p className="text-sm text-muted-foreground">Base Price: ${v.basePrice?.toFixed(2) || product.basePrice?.toFixed(2) || 'N/A'}</p>
+                                                    {v.priceTiers.length > 0 && (
+                                                        <div className="mt-2">
+                                                            <p className="text-xs font-semibold text-muted-foreground">PRICE TIERS</p>
+                                                            <Table className="bg-background mt-1">
+                                                              <TableHeader><TableRow><TableHead className="h-8">Min Qty</TableHead><TableHead className="h-8">Max Qty</TableHead><TableHead className="h-8">Price/Unit</TableHead></TableRow></TableHeader>
+                                                              <TableBody>
+                                                                {v.priceTiers.map(t => (
+                                                                  <TableRow key={t.id}><TableCell>{t.minQuantity}</TableCell><TableCell>{t.maxQuantity || '...'}</TableCell><TableCell>${t.pricePerUnit.toFixed(2)}</TableCell></TableRow>
+                                                                ))}
+                                                              </TableBody>
+                                                            </Table>
+                                                        </div>
+                                                    )}
+                                                </Card>
                                             ))}
-                                          </TableBody>
-                                        </Table>
+                                        </div>
                                       ) : (<p className="text-sm text-muted-foreground">No variants defined.</p>)}
                                     </div>
-                                    <Separator />
-                                    <div>
-                                      <h4 className="font-headline text-base mb-2">Price Tiers</h4>
-                                      {product.priceTiers.length > 0 ? (
-                                        <Table className="bg-background">
-                                          <TableHeader><TableRow><TableHead>Min Qty</TableHead><TableHead>Max Qty</TableHead><TableHead>Price/Unit</TableHead></TableRow></TableHeader>
-                                          <TableBody>
-                                            {product.priceTiers.map(t => (
-                                              <TableRow key={t.id}><TableCell>{t.minQuantity}</TableCell><TableCell>{t.maxQuantity || '...'}</TableCell><TableCell>${t.pricePerUnit.toFixed(2)}</TableCell></TableRow>
-                                            ))}
-                                          </TableBody>
-                                        </Table>
-                                      ) : (<p className="text-sm text-muted-foreground">No price tiers defined.</p>)}
-                                    </div>
-                                    <Separator />
                                     <div>
                                       <h4 className="font-headline text-base mb-2">Images</h4>
                                       {product.images.length > 0 ? (
