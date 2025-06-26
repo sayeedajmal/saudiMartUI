@@ -121,7 +121,7 @@ export default function SignupPage() {
       });
 
       if (signupData.myProfile.role === 'SELLER') {
-        router.push('/seller/dashboard');
+        router.push('/auth/setup-account');
       } else if (signupData.myProfile.role === 'BUYER') {
         router.push('/buyer/dashboard');
       } else {
