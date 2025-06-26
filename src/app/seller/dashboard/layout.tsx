@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/sidebar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { usePathname } from 'next/navigation';
-import { BotMessageSquare, LayoutDashboard, Package, ShoppingBag, BarChart3, Settings, MessageSquare, Warehouse, Truck, Bell, Shapes, MapPin } from "lucide-react";
+import { BotMessageSquare, LayoutDashboard, Package, ShoppingBag, BarChart3, Settings, MessageSquare, Warehouse, Truck, Bell, Shapes, MapPin, FileText } from "lucide-react";
 import Link from "next/link";
 import RoleProtectedRoute from '@/components/layout/RoleProtectedRoute';
 
