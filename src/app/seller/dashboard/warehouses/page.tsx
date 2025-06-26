@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -9,25 +8,44 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from '@/hooks/use-toast';
-import { selectAccessToken } from '@/lib/redux/slices/userSlice';
+import { selectAccessToken, selectUser, type MyProfile } from '@/lib/redux/slices/userSlice';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { WarehouseForm, type WarehouseFormValues } from '@/components/features/seller/warehouse-form';
 import { Badge } from '@/components/ui/badge';
+import { API_BASE_URL } from '@/lib/api';
 
-export interface SellerWarehouse extends WarehouseFormValues {
-  id: string;
+// This interface matches the nested structure from the API response
+export interface ApiWarehouse {
+  id: number;
+  name: string;
+  isActive: boolean;
+  address: {
+    id: number;
+    companyName: string | null;
+    streetAddress1: string;
+    streetAddress2: string | null;
+    city: string;
+    state: string;
+    postalCode: string;
+    country: string;
+    isDefault: boolean;
+  };
+  seller: {
+    id: string;
+  };
 }
 
-const DUMMY_WAREHOUSES: SellerWarehouse[] = [
-  { id: "wh_seller_1", name: "Riyadh Central Depot", street_address_1: "123 Industrial Main St", street_address_2: "Unit 5", city: "Riyadh", state: "Riyadh Province", postal_code: "11564", country: "Saudi Arabia", company_name: "My Logistics Co", is_active: true },
-  { id: "wh_seller_2", name: "Jeddah Port Warehouse", street_address_1: "456 Portside Ave", street_address_2: "", city: "Jeddah", state: "Makkah Province", postal_code: "21432", country: "Saudi Arabia", company_name: "", is_active: true },
-  { id: "wh_seller_3", name: "Dammam Storage Unit (Old)", street_address_1: "789 Storage Rd", street_address_2: "Bay 10", city: "Dammam", state: "Eastern Province", postal_code: "31433", country: "Saudi Arabia", company_name: "Storage Solutions Ltd", is_active: false },
-];
+// This interface is a flattened version, easier to work with in the frontend state and forms
+export interface SellerWarehouse extends WarehouseFormValues {
+  id: string; // Use string for potential UUIDs or DB IDs
+}
+
 
 export default function SellerWarehousesPage() {
   const [warehouses, setWarehouses] = useState<SellerWarehouse[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -36,59 +54,97 @@ export default function SellerWarehousesPage() {
   const [warehouseToDelete, setWarehouseToDelete] = useState<SellerWarehouse | null>(null);
 
   const accessToken = useSelector(selectAccessToken);
+  const currentUser = useSelector(selectUser) as MyProfile | null;
   const { toast } = useToast();
 
   const fetchWarehouses = useCallback(async () => {
     setIsLoading(true);
     setError(null);
-    if (!accessToken) {
-      toast({ title: "Demo Mode", description: "Displaying sample warehouses. Login to see your actual warehouses." });
-      setWarehouses(DUMMY_WAREHOUSES);
+    if (!accessToken || !currentUser?.id) {
+      setWarehouses([]);
       setIsLoading(false);
       return;
     }
 
     try {
-      console.log("Simulating fetch for seller warehouses with token:", accessToken);
-      await new Promise(resolve => setTimeout(resolve, 1000)); 
-      setWarehouses(DUMMY_WAREHOUSES);
-      toast({
-        title: "Warehouses Loaded (Simulated)",
-        description: "Displaying warehouses for the logged-in seller (simulated fetch).",
+      const response = await fetch(`${API_BASE_URL}/warehouses`, {
+        headers: { 'Authorization': `Bearer ${accessToken}` },
       });
+      
+      const responseData = await response.json();
+      if (!response.ok) {
+        throw new Error(responseData.message || 'Failed to fetch warehouses');
+      }
+
+      const allApiWarehouses: ApiWarehouse[] = responseData.data || [];
+      const sellerApiWarehouses = allApiWarehouses.filter(w => w.seller.id.toString() === currentUser.id);
+      
+      const flattenedWarehouses: SellerWarehouse[] = sellerApiWarehouses.map(w => ({
+        id: String(w.id),
+        name: w.name,
+        company_name: w.address.companyName,
+        street_address_1: w.address.streetAddress1,
+        street_address_2: w.address.streetAddress2,
+        city: w.address.city,
+        state: w.address.state,
+        postal_code: w.address.postalCode,
+        country: w.address.country,
+        is_active: w.isActive,
+      }));
+
+      setWarehouses(flattenedWarehouses);
+
     } catch (err: any) {
-      setError(err.message || "An unexpected error occurred.");
-      setWarehouses(DUMMY_WAREHOUSES);
-      toast({ variant: "destructive", title: "Error Fetching Warehouses", description: err.message });
+      setError(err.message || "An unexpected error occurred while fetching warehouses.");
+      setWarehouses([]);
+      toast({
+        variant: "destructive",
+        title: "Error Fetching Warehouses",
+        description: err.message,
+      });
     } finally {
       setIsLoading(false);
     }
-  }, [accessToken, toast]);
+  }, [accessToken, currentUser, toast]);
 
   useEffect(() => {
     fetchWarehouses();
   }, [fetchWarehouses]);
 
-  const handleAddSuccess = (newWarehouseData: WarehouseFormValues) => {
-    console.log("Simulating Add Warehouse API call with data:", newWarehouseData);
-    const newWarehouse: SellerWarehouse = { 
-      id: `wh_new_${Date.now()}`,
-      ...newWarehouseData 
-    };
-    setWarehouses(prev => [newWarehouse, ...prev]);
+  // Simulation handlers for CUD operations
+  const handleAddSuccess = async (newWarehouseData: WarehouseFormValues) => {
+    // This would be a POST API call
     setIsAddModalOpen(false);
-    toast({ title: "Warehouse Added (Simulated)", description: `${newWarehouse.name} has been successfully added.` });
+    setIsLoading(true);
+    await new Promise(res => setTimeout(res, 500)); // Simulate network delay
+    toast({ title: "Warehouse Added (Simulated)", description: "This is a simulated action. No data was sent to the server." });
+    fetchWarehouses(); // Refetch the list to show the "updated" data from server
   };
 
-  const handleEditSuccess = (updatedWarehouseData: WarehouseFormValues) => {
+  const handleEditSuccess = async (updatedWarehouseData: WarehouseFormValues) => {
     if (!selectedWarehouseToEdit) return;
-    console.log("Simulating Edit Warehouse API call for ID:", selectedWarehouseToEdit.id, "with data:", updatedWarehouseData);
-    setWarehouses(prev => prev.map(wh => wh.id === selectedWarehouseToEdit.id ? { ...wh, ...updatedWarehouseData } : wh));
+    // This would be a PUT API call to /warehouses/{id}
     setIsEditModalOpen(false);
     setSelectedWarehouseToEdit(null);
-    toast({ title: "Warehouse Updated (Simulated)", description: `${updatedWarehouseData.name} has been successfully updated.` });
+    setIsLoading(true);
+    await new Promise(res => setTimeout(res, 500));
+    toast({ title: "Warehouse Updated (Simulated)", description: "This is a simulated action. No data was sent to the server." });
+    fetchWarehouses();
   };
   
+  const confirmDeleteWarehouse = async () => {
+    if (!warehouseToDelete) return;
+    
+    setIsDeleting(true);
+    // This would be a DELETE API call to /warehouses/{id}
+    await new Promise(res => setTimeout(res, 500));
+    toast({ title: "Warehouse Deleted (Simulated)", description: `Simulated deletion of ${warehouseToDelete.name}.` });
+    setWarehouseToDelete(null);
+    setIsDeleting(false);
+    fetchWarehouses();
+  };
+
+  // UI handlers
   const handleOpenEditModal = (warehouse: SellerWarehouse) => {
     setSelectedWarehouseToEdit(warehouse);
     setIsEditModalOpen(true);
@@ -96,22 +152,6 @@ export default function SellerWarehousesPage() {
 
   const handleDeleteWarehouse = (warehouse: SellerWarehouse) => {
     setWarehouseToDelete(warehouse);
-  };
-
-  const confirmDeleteWarehouse = async () => {
-    if (!warehouseToDelete) return;
-    
-    if(!accessToken) {
-      toast({ variant: "destructive", title: "Not Authenticated", description: "Please login to delete warehouses." });
-      setWarehouseToDelete(null);
-      return;
-    }
-    console.log(`Simulating delete for warehouse ID: ${warehouseToDelete.id} with token: ${accessToken}`);
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    toast({ title: "Warehouse Deleted (Simulated)", description: `${warehouseToDelete.name} has been deleted.` });
-    setWarehouses(prev => prev.filter(wh => wh.id !== warehouseToDelete.id));
-    setWarehouseToDelete(null);
   };
 
   return (
@@ -174,10 +214,10 @@ export default function SellerWarehousesPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right space-x-2">
-                        <Button variant="outline" size="sm" onClick={() => handleOpenEditModal(warehouse)}>
+                        <Button variant="outline" size="sm" onClick={() => handleOpenEditModal(warehouse)} disabled={isDeleting}>
                           <Edit3 className="mr-1 h-3 w-3" /> Edit
                         </Button>
-                        <Button variant="destructive" size="sm" onClick={() => handleDeleteWarehouse(warehouse)}>
+                        <Button variant="destructive" size="sm" onClick={() => handleDeleteWarehouse(warehouse)} disabled={isDeleting}>
                           <Trash2 className="mr-1 h-3 w-3" /> Delete
                         </Button>
                       </TableCell>
@@ -240,8 +280,9 @@ export default function SellerWarehousesPage() {
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => setWarehouseToDelete(null)}>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={confirmDeleteWarehouse} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              <AlertDialogCancel onClick={() => setWarehouseToDelete(null)} disabled={isDeleting}>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmDeleteWarehouse} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={isDeleting}>
+                 {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                 Yes, Delete Warehouse
               </AlertDialogAction>
             </AlertDialogFooter>
