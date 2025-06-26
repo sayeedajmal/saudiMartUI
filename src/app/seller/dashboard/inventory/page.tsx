@@ -94,11 +94,19 @@ export default function SellerInventoryManagementPage() {
       const response = await fetch(`${API_BASE_URL}/sellerinventory/${currentUser.id}`, {
         headers: { 'Authorization': `Bearer ${accessToken}` },
       });
-      const responseData = await response.json();
-      if (!response.ok) {
-        throw new Error(responseData.message || "Failed to fetch inventory.");
-      }
       
+      if (!response.ok) {
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.indexOf("application/json") !== -1) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || `Server error: ${response.status}`);
+        } else {
+            const textError = await response.text();
+            throw new Error(`Server returned a non-JSON response. Body: ${textError.substring(0, 200)}...`);
+        }
+      }
+
+      const responseData = await response.json();
       const apiData: ApiInventoryItem[] = responseData.data || [];
       
       const flattenedData: InventoryItem[] = apiData.map(item => ({
@@ -311,3 +319,5 @@ export default function SellerInventoryManagementPage() {
     </>
   );
 }
+
+    
