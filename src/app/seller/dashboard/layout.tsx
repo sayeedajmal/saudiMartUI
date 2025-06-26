@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/sidebar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { usePathname } from 'next/navigation';
-import { BotMessageSquare, LayoutDashboard, Package, ShoppingBag, BarChart3, Settings, MessageSquare, Warehouse, Truck, Bell, Shapes, MapPin, FileText } from "lucide-react";
+import { BotMessageSquare, LayoutDashboard, Package, ShoppingBag, BarChart3, Settings, MessageSquare, Warehouse, Truck, Bell, Shapes, MapPin, FileText, Boxes } from "lucide-react";
 import Link from "next/link";
 import RoleProtectedRoute from '@/components/layout/RoleProtectedRoute';
 
@@ -26,7 +26,7 @@ const menuItems = [
     { href: "/seller/dashboard/category-management", tooltip: "Category Management", icon: Shapes, label: "Category Management" },
     { href: "/seller/dashboard/warehouses", tooltip: "Manage Warehouses", icon: Warehouse, label: "Warehouses" },
     { href: "/seller/dashboard/addresses", tooltip: "Manage Addresses", icon: MapPin, label: "Addresses" },
-    { href: "/seller/dashboard/inventory", tooltip: "Inventory", icon: Package, label: "Inventory" },
+    { href: "/seller/dashboard/inventory", tooltip: "Inventory", icon: Boxes, label: "Inventory" },
     { href: "/seller/dashboard/shipping-settings", tooltip: "Shipping Settings", icon: Truck, label: "Shipping Settings" },
     { href: "/seller/dashboard/notifications", tooltip: "Notifications", icon: Bell, label: "Notifications" },
     { href: "#", tooltip: "Analytics", icon: BarChart3, label: "Analytics" },

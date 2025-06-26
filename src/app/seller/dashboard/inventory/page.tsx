@@ -9,13 +9,34 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from '@/hooks/use-toast';
-import { selectAccessToken } from '@/lib/redux/slices/userSlice';
+import { selectAccessToken, selectUser, type MyProfile } from '@/lib/redux/slices/userSlice';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { API_BASE_URL } from '@/lib/api';
+
+interface ApiInventoryItem {
+  id: string;
+  product: {
+    id: string;
+    name: string;
+  };
+  variant?: {
+    id: string;
+    variantName: string;
+  };
+  warehouse: {
+    id: string;
+    name: string;
+  };
+  quantity: number;
+  reservedQuantity: number;
+  reorderLevel: number;
+  lastUpdated: string;
+}
 
 interface InventoryItem {
   inventory_id: string;
@@ -31,13 +52,6 @@ interface InventoryItem {
   last_updated: string;
 }
 
-const DUMMY_INVENTORY_ITEMS: InventoryItem[] = [
-  { inventory_id: 'inv001', product_id: 'prod_123', product_name: 'Premium Steel Pipes', warehouse_id: 'wh_seller_1', warehouse_name: 'Riyadh Central Depot', quantity: 150, reserved_quantity: 10, reorder_level: 20, last_updated: '2024-07-28' },
-  { inventory_id: 'inv002', product_id: 'prod_456', product_name: 'Organic Cotton Fabric', variant_id: 'var_cotton_blue', variant_name: 'Blue Color', warehouse_id: 'wh_seller_1', warehouse_name: 'Riyadh Central Depot', quantity: 500, reserved_quantity: 50, reorder_level: 100, last_updated: '2024-07-27' },
-  { inventory_id: 'inv003', product_id: 'prod_123', product_name: 'Premium Steel Pipes', warehouse_id: 'wh_seller_2', warehouse_name: 'Jeddah Port Warehouse', quantity: 75, reserved_quantity: 5, reorder_level: 15, last_updated: '2024-07-28' },
-  { inventory_id: 'inv004', product_id: 'prod_789', product_name: 'Gourmet Spice Mix', warehouse_id: 'wh_seller_1', warehouse_name: 'Riyadh Central Depot', quantity: 200, reserved_quantity: 0, reorder_level: 25, last_updated: '2024-07-26' },
-];
-
 const updateStockSchema = z.object({
   quantity: z.coerce.number().min(0, "Quantity cannot be negative."),
   reserved_quantity: z.coerce.number().min(0, "Reserved quantity cannot be negative."),
@@ -48,11 +62,13 @@ type UpdateStockFormValues = z.infer<typeof updateStockSchema>;
 export default function SellerInventoryManagementPage() {
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isMutating, setIsMutating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isUpdateStockModalOpen, setIsUpdateStockModalOpen] = useState(false);
   const [selectedItemToUpdate, setSelectedItemToUpdate] = useState<InventoryItem | null>(null);
   
   const accessToken = useSelector(selectAccessToken);
+  const currentUser = useSelector(selectUser) as MyProfile | null;
   const { toast } = useToast();
 
   const form = useForm<UpdateStockFormValues>({
@@ -65,29 +81,50 @@ export default function SellerInventoryManagementPage() {
   });
 
   const fetchInventory = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    if (!accessToken) {
-      setInventoryItems(DUMMY_INVENTORY_ITEMS); 
+    if (!currentUser?.id || !accessToken) {
+      setInventoryItems([]);
       setIsLoading(false);
       return;
     }
 
+    setIsLoading(true);
+    setError(null);
+    
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000)); 
-      setInventoryItems(DUMMY_INVENTORY_ITEMS); 
-      toast({
-        title: "Inventory Loaded (Simulated)",
-        description: "Displaying inventory (simulated fetch).",
+      const response = await fetch(`${API_BASE_URL}/sellerinventory/${currentUser.id}`, {
+        headers: { 'Authorization': `Bearer ${accessToken}` },
       });
+      const responseData = await response.json();
+      if (!response.ok) {
+        throw new Error(responseData.message || "Failed to fetch inventory.");
+      }
+      
+      const apiData: ApiInventoryItem[] = responseData.data || [];
+      
+      const flattenedData: InventoryItem[] = apiData.map(item => ({
+        inventory_id: String(item.id),
+        product_id: String(item.product.id),
+        product_name: item.product.name,
+        variant_id: item.variant ? String(item.variant.id) : undefined,
+        variant_name: item.variant ? item.variant.variantName : undefined,
+        warehouse_id: String(item.warehouse.id),
+        warehouse_name: item.warehouse.name,
+        quantity: item.quantity,
+        reserved_quantity: item.reservedQuantity,
+        reorder_level: item.reorderLevel,
+        last_updated: new Date(item.lastUpdated).toLocaleDateString(),
+      }));
+
+      setInventoryItems(flattenedData);
+
     } catch (err: any) {
-      setError(err.message || "An unexpected error occurred.");
-      setInventoryItems(DUMMY_INVENTORY_ITEMS); 
+      setError(err.message);
+      setInventoryItems([]);
       toast({ variant: "destructive", title: "Error Fetching Inventory", description: err.message });
     } finally {
       setIsLoading(false);
     }
-  }, [accessToken, toast]);
+  }, [accessToken, currentUser, toast]);
 
   useEffect(() => {
     fetchInventory();
@@ -105,7 +142,7 @@ export default function SellerInventoryManagementPage() {
 
   const handleUpdateStockSubmit = async (values: UpdateStockFormValues) => {
     if (!selectedItemToUpdate) return;
-    setIsLoading(true);
+    setIsMutating(true);
 
     console.log("Simulating update stock for:", selectedItemToUpdate.inventory_id, "with values:", values);
     await new Promise(resolve => setTimeout(resolve, 700));
@@ -123,7 +160,7 @@ export default function SellerInventoryManagementPage() {
     });
     setIsUpdateStockModalOpen(false);
     setSelectedItemToUpdate(null);
-    setIsLoading(false);
+    setIsMutating(false);
   };
 
   return (
@@ -187,7 +224,7 @@ export default function SellerInventoryManagementPage() {
                       <TableCell className="text-right">{item.reorder_level}</TableCell>
                       <TableCell>{item.last_updated}</TableCell>
                       <TableCell className="text-right">
-                        <Button variant="outline" size="sm" onClick={() => handleOpenUpdateStockModal(item)}>
+                        <Button variant="outline" size="sm" onClick={() => handleOpenUpdateStockModal(item)} disabled={isMutating}>
                           <Edit className="mr-1 h-3 w-3" /> Update
                         </Button>
                       </TableCell>
@@ -261,8 +298,8 @@ export default function SellerInventoryManagementPage() {
                   <Button type="button" variant="outline" onClick={() => setIsUpdateStockModalOpen(false)} disabled={form.formState.isSubmitting}>
                     Cancel
                   </Button>
-                  <Button type="submit" className="bg-accent text-accent-foreground hover:bg-accent/90" disabled={form.formState.isSubmitting}>
-                    {form.formState.isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  <Button type="submit" className="bg-accent text-accent-foreground hover:bg-accent/90" disabled={form.formState.isSubmitting || isMutating}>
+                    {isMutating || form.formState.isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                     Save Changes
                   </Button>
                 </DialogFooter>
