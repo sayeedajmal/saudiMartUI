@@ -49,7 +49,7 @@ export default function SetupAccountPage() {
                 <h3 className="font-headline text-xl font-semibold mb-4 text-center">Step 1: Add Your Primary Business Address</h3>
                 <AddressForm
                   onSuccess={handleAddressSuccess}
-                  addressType="WAREHOUSE" // The first address for a seller is for a warehouse
+                  addressType="SHIPPING" // The first address for a seller should be a shipping address, which can be tied to a warehouse.
                   isDefault={true}
                 />
               </div>
