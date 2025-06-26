@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -67,17 +68,16 @@ export default function SellerWarehousesPage() {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/warehouses`, {
+      const response = await fetch(`${API_BASE_URL}/warehouses/seller?sellerId=${currentUser.id}`, {
         headers: { 'Authorization': `Bearer ${accessToken}` },
       });
       
       const responseData = await response.json();
       if (!response.ok) {
-        throw new Error(responseData.message || 'Failed to fetch warehouses');
+        throw new Error(responseData.message || 'Failed to fetch warehouses for this seller.');
       }
-
-      const allApiWarehouses: ApiWarehouse[] = responseData.data || [];
-      const sellerApiWarehouses = allApiWarehouses.filter(w => w.seller.id.toString() === currentUser.id);
+      
+      const sellerApiWarehouses: ApiWarehouse[] = responseData.data || [];
       
       const flattenedWarehouses: SellerWarehouse[] = sellerApiWarehouses.map(w => ({
         id: String(w.id),
