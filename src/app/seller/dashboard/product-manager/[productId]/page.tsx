@@ -65,7 +65,7 @@ const productVariantSchema = z.object({
     z.coerce.number({invalid_type_error: "Additional price must be a number"}).optional().nullable()
   ),
   available: z.boolean().default(true),
-  priceTiers: z.array(priceTierSchema).optional(),
+  priceTiers: z.array(priceTierSchema).min(1, "At least one price tier is required for each variant."),
 });
 
 const productImageSchema = z.object({
@@ -92,25 +92,19 @@ const productSpecificationSchema = z.object({
 
 const productSchema = z.object({
   name: z.string().min(3, "Product name must be at least 3 characters").max(255),
-  description: z.string().min(10, "Description must be at least 10 characters").max(5000).optional().nullable(),
+  description: z.string().min(10, "Description must be at least 10 characters").max(5000),
   category_id: z.string().min(1, "Please select a category"),
-  basePrice: z.preprocess(
-    (val) => (val === "" ? undefined : val),
-    z.coerce.number({invalid_type_error: "Base price must be a number"}).positive().optional().nullable()
-  ),
+  basePrice: z.coerce.number({required_error: "Base price is required"}).positive("Price must be positive"),
   isBulkOnly: z.boolean().default(false),
   minimumOrderQuantity: z.coerce.number({invalid_type_error: "MOQ must be a number"}).int().min(1, "MOQ must be at least 1").default(1),
-  weight: z.preprocess(
-    (val) => (val === "" ? undefined : val),
-    z.coerce.number({invalid_type_error: "Weight must be a number"}).optional().nullable()
-  ),
-  weightUnit: z.string().max(10).optional().nullable(),
-  dimensions: z.string().max(50).optional().nullable(),
+  weight: z.coerce.number({required_error: "Weight is required"}).positive("Weight must be positive"),
+  weightUnit: z.string().min(1, "Weight unit is required").max(10),
+  dimensions: z.string().min(1, "Dimensions are required").max(50),
   sku: z.string().min(1, "SKU is required").max(50),
   available: z.boolean().default(true),
-  variants: z.array(productVariantSchema).optional(),
-  images: z.array(productImageSchema).optional(),
-  specifications: z.array(productSpecificationSchema).optional(),
+  variants: z.array(productVariantSchema).min(1, "At least one product variant is required."),
+  images: z.array(productImageSchema).min(1, "At least one product image is required."),
+  specifications: z.array(productSpecificationSchema).min(1, "At least one product specification is required."),
 });
 
 type ProductFormValues = z.infer<typeof productSchema>;
@@ -127,7 +121,7 @@ const VariantCard = ({ variantIndex, removeVariant }: { variantIndex: number, re
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-2">
                 <FormField control={control} name={`variants.${variantIndex}.sku`} render={({ field }) => (<FormItem><FormLabel>Variant SKU</FormLabel><FormControl><Input placeholder="Variant SKU" {...field} /></FormControl><FormMessage /></FormItem>)} />
                 <FormField control={control} name={`variants.${variantIndex}.variant_name`} render={({ field }) => (<FormItem><FormLabel>Variant Name</FormLabel><FormControl><Input placeholder="e.g., Red, Small" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
-                <FormField control={control} name={`variants.${variantIndex}.base_price`} render={({ field }) => (<FormItem><FormLabel>Base Price</FormLabel><FormControl><Input type="number" step="0.01" placeholder="Overrides main price" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                <FormField control={control} name={`variants.${variantIndex}.base_price`} render={({ field }) => (<FormItem><FormLabel>Base Price</FormLabel><FormControl><Input type="number" step="0.01" placeholder="Overrides main price" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
             </div>
             <Separator className="my-4" />
             
@@ -137,7 +131,7 @@ const VariantCard = ({ variantIndex, removeVariant }: { variantIndex: number, re
                   <Card key={tier.id} className="p-3 bg-background relative">
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                           <FormField control={control} name={`variants.${variantIndex}.priceTiers.${tierIndex}.min_quantity`} render={({ field }) => (<FormItem><FormLabel>Min Qty</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                          <FormField control={control} name={`variants.${variantIndex}.priceTiers.${tierIndex}.max_quantity`} render={({ field }) => (<FormItem><FormLabel>Max Qty</FormLabel><FormControl><Input type="number" placeholder="Optional" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                          <FormField control={control} name={`variants.${variantIndex}.priceTiers.${tierIndex}.max_quantity`} render={({ field }) => (<FormItem><FormLabel>Max Qty</FormLabel><FormControl><Input type="number" placeholder="Optional" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
                           <FormField control={control} name={`variants.${variantIndex}.priceTiers.${tierIndex}.price_per_unit`} render={({ field }) => (<FormItem><FormLabel>Price/Unit</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)} />
                       </div>
                       <Button type="button" variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6" onClick={() => removeTier(tierIndex)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
@@ -176,10 +170,10 @@ export default function ManageProductPage() {
       name: "",
       description: "",
       category_id: "",
-      basePrice: '',
+      basePrice: undefined,
       isBulkOnly: false,
       minimumOrderQuantity: 1,
-      weight: '',
+      weight: undefined,
       weightUnit: "",
       dimensions: "",
       sku: "",
@@ -229,10 +223,10 @@ export default function ManageProductPage() {
         name: productData.name || "",
         description: productData.description || "",
         category_id: productData.category?.id?.toString() || "",
-        basePrice: productData.basePrice ?? '',
+        basePrice: productData.basePrice ?? undefined,
         isBulkOnly: productData.isBulkOnly || false,
         minimumOrderQuantity: productData.minimumOrderQuantity || 1,
-        weight: productData.weight ?? '',
+        weight: productData.weight ?? undefined,
         weightUnit: productData.weightUnit || "",
         dimensions: productData.dimensions || "",
         sku: productData.sku || "",
@@ -303,14 +297,14 @@ export default function ManageProductPage() {
     const apiPayload = {
       id: isEditMode ? parseInt(productId, 10) : undefined,
       name: values.name,
-      description: values.description || null,
+      description: values.description,
       category: values.category_id ? { id: parseInt(values.category_id, 10) } : null,
       basePrice: values.basePrice,
       isBulkOnly: values.isBulkOnly,
       minimumOrderQuantity: values.minimumOrderQuantity,
       weight: values.weight,
-      weightUnit: values.weightUnit || null,
-      dimensions: values.dimensions || null,
+      weightUnit: values.weightUnit,
+      dimensions: values.dimensions,
       sku: values.sku,
       available: values.available,
       seller: { id: currentUser.id },
@@ -410,16 +404,16 @@ export default function ManageProductPage() {
             <Card className="shadow-md">
               <CardHeader><CardTitle className="font-headline">Pricing & Quantity</CardTitle></CardHeader>
               <CardContent className="grid md:grid-cols-2 gap-6">
-                 <FormField control={form.control} name="basePrice" render={({ field }) => (<FormItem><FormLabel>Base Price (per unit)</FormLabel><FormControl><Input type="number" placeholder="0.00" {...field} /></FormControl><FormDescription>This is the default price if no variant price is set.</FormDescription><FormMessage /></FormItem>)} />
+                 <FormField control={form.control} name="basePrice" render={({ field }) => (<FormItem><FormLabel>Base Price (per unit)</FormLabel><FormControl><Input type="number" placeholder="0.00" {...field} value={field.value ?? ''} /></FormControl><FormDescription>This is the default price if no variant price is set.</FormDescription><FormMessage /></FormItem>)} />
                  <FormField control={form.control} name="minimumOrderQuantity" render={({ field }) => (<FormItem><FormLabel>Minimum Order Quantity (MOQ)</FormLabel><FormControl><Input type="number" placeholder="1" {...field} /></FormControl><FormMessage /></FormItem>)} />
                  <FormField control={form.control} name="isBulkOnly" render={({ field }) => (<FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm md:col-span-2"><div className="space-y-0.5"><FormLabel>Bulk Orders Only</FormLabel><FormDescription>Is this product sold only in bulk quantities?</FormDescription></div><FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl></FormItem>)} />
               </CardContent>
             </Card>
             
             <Card className="shadow-md">
-              <CardHeader><CardTitle className="font-headline">Physical Details (Optional)</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="font-headline">Physical Details</CardTitle></CardHeader>
               <CardContent className="grid md:grid-cols-3 gap-6">
-                <FormField control={form.control} name="weight" render={({ field }) => (<FormItem><FormLabel>Weight</FormLabel><FormControl><Input type="number" placeholder="e.g., 5.5" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                <FormField control={form.control} name="weight" render={({ field }) => (<FormItem><FormLabel>Weight</FormLabel><FormControl><Input type="number" placeholder="e.g., 5.5" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
                 <FormField control={form.control} name="weightUnit" render={({ field }) => (<FormItem><FormLabel>Weight Unit</FormLabel><FormControl><Input placeholder="e.g., kg, g, lb" {...field} value={field.value ?? ''}/></FormControl><FormMessage /></FormItem>)} />
                 <FormField control={form.control} name="dimensions" render={({ field }) => (<FormItem><FormLabel>Dimensions (LxWxH unit)</FormLabel><FormControl><Input placeholder="e.g., 10x20x5 cm" {...field} value={field.value ?? ''}/></FormControl><FormMessage /></FormItem>)} />
               </CardContent>
@@ -437,7 +431,7 @@ export default function ManageProductPage() {
                 <Info className="h-5 w-5 text-primary" />
                 <AlertTitle className="text-primary font-semibold">Advanced Details</AlertTitle>
                 <AlertDescription className="text-primary/80">
-                  Manage Product Variants, Images, and Specifications.
+                  Manage Product Variants, Images, and Specifications. At least one of each is required.
                 </AlertDescription>
             </Alert>
             
@@ -446,22 +440,25 @@ export default function ManageProductPage() {
               <CardContent className="space-y-4">
                 {variantFields.map((item, index) => <VariantCard key={item.id} variantIndex={index} removeVariant={removeVariant} />)}
                 <Button type="button" variant="outline" onClick={() => appendVariant({ sku: '', variant_name: '', base_price: '', additional_price: '', available: true, priceTiers: [] })}><PlusCircle className="mr-2 h-4 w-4" /> Add Variant</Button>
+                <FormMessage>{form.formState.errors.variants?.message}</FormMessage>
               </CardContent>
             </Card>
 
             <Card className="shadow-md">
               <CardHeader><CardTitle className="font-headline flex items-center"><ImagePlus className="mr-2 h-5 w-5 text-primary"/>Product Images</CardTitle><CardDescription>Add image URLs for your product. Mark one as primary.</CardDescription></CardHeader>
               <CardContent className="space-y-4">
-                 {imageFields.map((item, index) => (<Card key={item.id || index} className="p-4 border shadow-sm"><div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2"><FormField control={form.control} name={`images.${index}.image_url`} render={({ field }) => (<FormItem className="md:col-span-2"><FormLabel>Image URL</FormLabel><FormControl><Input placeholder="https://example.com/image.png" {...field} /></FormControl><FormMessage /></FormItem>)} /><FormField control={form.control} name={`images.${index}.alt_text`} render={({ field }) => (<FormItem><FormLabel>Alt Text (Optional)</FormLabel><FormControl><Input placeholder="Descriptive alt text" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} /><FormField control={form.control} name={`images.${index}.display_order`} render={({ field }) => (<FormItem><FormLabel>Display Order (Optional)</FormLabel><FormControl><Input type="number" placeholder="0" {...field} /></FormControl><FormMessage /></FormItem>)} /></div><div className="flex justify-between items-center mt-2"><FormField control={form.control} name={`images.${index}.is_primary`} render={({ field }) => (<FormItem className="flex flex-row items-center space-x-2"><FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="mb-0 font-normal">Primary Image</FormLabel></FormItem>)} /><Button type="button" variant="destructive" size="sm" onClick={() => removeImage(index)}><Trash2 className="mr-1 h-4 w-4" /> Remove Image</Button></div></Card>))}
+                 {imageFields.map((item, index) => (<Card key={item.id || index} className="p-4 border shadow-sm"><div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2"><FormField control={form.control} name={`images.${index}.image_url`} render={({ field }) => (<FormItem className="md:col-span-2"><FormLabel>Image URL</FormLabel><FormControl><Input placeholder="https://example.com/image.png" {...field} /></FormControl><FormMessage /></FormItem>)} /><FormField control={form.control} name={`images.${index}.alt_text`} render={({ field }) => (<FormItem><FormLabel>Alt Text (Optional)</FormLabel><FormControl><Input placeholder="Descriptive alt text" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} /><FormField control={form.control} name={`images.${index}.display_order`} render={({ field }) => (<FormItem><FormLabel>Display Order (Optional)</FormLabel><FormControl><Input type="number" placeholder="0" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} /></div><div className="flex justify-between items-center mt-2"><FormField control={form.control} name={`images.${index}.is_primary`} render={({ field }) => (<FormItem className="flex flex-row items-center space-x-2"><FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="mb-0 font-normal">Primary Image</FormLabel></FormItem>)} /><Button type="button" variant="destructive" size="sm" onClick={() => removeImage(index)}><Trash2 className="mr-1 h-4 w-4" /> Remove Image</Button></div></Card>))}
                 <Button type="button" variant="outline" onClick={() => appendImage({ image_url: '', alt_text: '', display_order: '', is_primary: imageFields.length === 0 })}><PlusCircle className="mr-2 h-4 w-4" /> Add Image URL</Button>
+                <FormMessage>{form.formState.errors.images?.message}</FormMessage>
               </CardContent>
             </Card>
 
             <Card className="shadow-md">
               <CardHeader><CardTitle className="font-headline flex items-center"><Tags className="mr-2 h-5 w-5 text-primary"/>Product Specifications</CardTitle><CardDescription>Add key-value pairs for product specifications (e.g., Material: Steel, Voltage: 220V).</CardDescription></CardHeader>
               <CardContent className="space-y-4">
-                {specFields.map((item, index) => (<Card key={item.id || index} className="p-4 border shadow-sm"><div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-2"><FormField control={form.control} name={`specifications.${index}.spec_name`} render={({ field }) => (<FormItem><FormLabel>Spec Name</FormLabel><FormControl><Input placeholder="e.g., Material" {...field} /></FormControl><FormMessage /></FormItem>)} /><FormField control={form.control} name={`specifications.${index}.spec_value`} render={({ field }) => (<FormItem><FormLabel>Spec Value</FormLabel><FormControl><Input placeholder="e.g., Steel" {...field} /></FormControl><FormMessage /></FormItem>)} /><FormField control={form.control} name={`specifications.${index}.unit`} render={({ field }) => (<FormItem><FormLabel>Unit (Optional)</FormLabel><FormControl><Input placeholder="e.g., cm, kg" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} /><FormField control={form.control} name={`specifications.${index}.display_order`} render={({ field }) => (<FormItem><FormLabel>Display Order (Optional)</FormLabel><FormControl><Input type="number" placeholder="0" {...field} /></FormControl><FormMessage /></FormItem>)} /></div><div className="flex justify-end"><Button type="button" variant="destructive" size="sm" onClick={() => removeSpec(index)}><Trash2 className="mr-1 h-4 w-4" /> Remove Specification</Button></div></Card>))}
+                {specFields.map((item, index) => (<Card key={item.id || index} className="p-4 border shadow-sm"><div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-2"><FormField control={form.control} name={`specifications.${index}.spec_name`} render={({ field }) => (<FormItem><FormLabel>Spec Name</FormLabel><FormControl><Input placeholder="e.g., Material" {...field} /></FormControl><FormMessage /></FormItem>)} /><FormField control={form.control} name={`specifications.${index}.spec_value`} render={({ field }) => (<FormItem><FormLabel>Spec Value</FormLabel><FormControl><Input placeholder="e.g., Steel" {...field} /></FormControl><FormMessage /></FormItem>)} /><FormField control={form.control} name={`specifications.${index}.unit`} render={({ field }) => (<FormItem><FormLabel>Unit (Optional)</FormLabel><FormControl><Input placeholder="e.g., cm, kg" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} /><FormField control={form.control} name={`specifications.${index}.display_order`} render={({ field }) => (<FormItem><FormLabel>Display Order (Optional)</FormLabel><FormControl><Input type="number" placeholder="0" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} /></div><div className="flex justify-end"><Button type="button" variant="destructive" size="sm" onClick={() => removeSpec(index)}><Trash2 className="mr-1 h-4 w-4" /> Remove Specification</Button></div></Card>))}
                 <Button type="button" variant="outline" onClick={() => appendSpec({ spec_name: '', spec_value: '', unit: '', display_order: '' })}><PlusCircle className="mr-2 h-4 w-4" /> Add Specification</Button>
+                <FormMessage>{form.formState.errors.specifications?.message}</FormMessage>
               </CardContent>
             </Card>
 
