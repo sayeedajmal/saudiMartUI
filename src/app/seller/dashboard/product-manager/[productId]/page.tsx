@@ -32,7 +32,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { API_BASE_URL } from '@/lib/api';
 
 interface FetchedCategory {
-  id: number;
+  id: string;
   name: string;
   isActive: boolean;
 }
@@ -298,7 +298,7 @@ export default function ManageProductPage() {
       id: isEditMode ? parseInt(productId, 10) : undefined,
       name: values.name,
       description: values.description,
-      category: values.category_id ? { id: parseInt(values.category_id, 10) } : null,
+      category: values.category_id ? { id: values.category_id } : null,
       basePrice: values.basePrice,
       isBulkOnly: values.isBulkOnly,
       minimumOrderQuantity: values.minimumOrderQuantity,
@@ -392,7 +392,7 @@ export default function ManageProductPage() {
                       <Select onValueChange={field.onChange} value={field.value ?? ''} disabled={isLoadingCategories}>
                         <FormControl><SelectTrigger><SelectValue placeholder={isLoadingCategories ? "Loading..." : "Select category"} /></SelectTrigger></FormControl>
                         <SelectContent>
-                          {isLoadingCategories && !categories.length ? (<SelectItem value="loading" disabled>Loading...</SelectItem>) : categories.length > 0 ? (categories.map((cat) => (<SelectItem key={cat.id} value={String(cat.id)}>{cat.name}</SelectItem>))) : (<SelectItem value="no-categories" disabled>No active categories found.</SelectItem>)}
+                          {isLoadingCategories && !categories.length ? (<SelectItem value="loading" disabled>Loading...</SelectItem>) : categories.length > 0 ? (categories.map((cat) => (<SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>))) : (<SelectItem value="no-categories" disabled>No active categories found.</SelectItem>)}
                         </SelectContent>
                       </Select>
                       <FormDescription>Select the primary category. <Link href="/seller/dashboard/category-management" className="text-xs text-primary hover:underline">Manage Categories</Link></FormDescription><FormMessage />
