@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback, Fragment } from 'react';
 import { useSelector } from 'react-redux';
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { Package, PlusCircle, Edit3, Trash2, Loader2, Eye, ChevronDown } from "lucide-react";
+import { Package, PlusCircle, Edit3, Trash2, Loader2, Eye, ChevronDown, Image as ImageIcon } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { selectAccessToken, selectUser, type MyProfile } from '@/lib/redux/slices/userSlice';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Separator } from '@/components/ui/separator';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { API_BASE_URL } from '@/lib/api';
 
 interface ProductImage {
@@ -262,6 +263,7 @@ export default function SellerProductManagerPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-[50px]"></TableHead>
+                    <TableHead className="w-[80px]">Image</TableHead>
                     <TableHead>Name</TableHead>
                     <TableHead>SKU</TableHead>
                     <TableHead>Price</TableHead>
@@ -270,119 +272,130 @@ export default function SellerProductManagerPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {products.map((product) => (
-                    <Fragment key={product.id}>
-                      <TableRow onClick={() => handleToggleRow(product.id)} className="cursor-pointer hover:bg-muted/50">
-                        <TableCell>
-                          <ChevronDown className={`h-4 w-4 transition-transform ${expandedRowId === product.id ? 'rotate-180' : ''}`} />
-                        </TableCell>
-                        <TableCell className="font-medium max-w-xs truncate" title={product.name}>{product.name}</TableCell>
-                        <TableCell>{product.sku}</TableCell>
-                        <TableCell>${typeof product.basePrice === 'number' ? product.basePrice.toFixed(2) : (product.basePrice || 'N/A')}</TableCell>
-                        <TableCell>
-                          <Badge variant={product.available ? "default" : "secondary"} className={product.available ? 'bg-green-500 hover:bg-green-600' : 'bg-red-500 hover:bg-red-600'}>
-                            {product.available ? "Available" : "Unavailable"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right space-x-2">
-                          <Button variant="outline" size="sm" asChild onClick={e => e.stopPropagation()}>
-                              <Link href={`/seller/dashboard/product-manager/${product.id}`} title="Edit Product">
-                              <Edit3 className="mr-1 h-3 w-3" /> Edit
-                              </Link>
-                          </Button>
-                          <Button variant="destructive" size="sm" onClick={(e) => handleDeleteProduct(e, product)} title="Delete Product" disabled={isDeleting}>
-                              {isDeleting && productToDelete?.id === product.id ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Trash2 className="mr-1 h-3 w-3" />}
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                      {expandedRowId === product.id && (
-                        <TableRow className="bg-muted hover:bg-muted">
-                          <TableCell colSpan={6} className="p-0">
-                              <div className="p-6">
-                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-6">
-                                  <div className="space-y-6">
-                                    <div>
-                                      <h4 className="font-headline text-base mb-2">Product Details</h4>
-                                      <div className="space-y-2 text-sm">
-                                        <div className="grid grid-cols-2 gap-2">
-                                          <p className="font-semibold text-foreground">Description:</p>
-                                          <p className="text-muted-foreground col-span-2">{product.description || 'N/A'}</p>
-                                        </div>
-                                        <Separator/>
-                                        <div className="grid grid-cols-2 gap-2">
-                                          <p className="font-semibold text-foreground">Category:</p><p className="text-muted-foreground">{product.category?.name || 'Uncategorized'}</p>
-                                          <p className="font-semibold text-foreground">MOQ:</p><p className="text-muted-foreground">{product.minimumOrderQuantity} units</p>
-                                          <p className="font-semibold text-foreground">Bulk Only:</p><p className="text-muted-foreground">{product.isBulkOnly ? 'Yes' : 'No'}</p>
-                                          <p className="font-semibold text-foreground">Weight:</p><p className="text-muted-foreground">{product.weight ? `${product.weight} ${product.weightUnit || ''}`.trim() : 'N/A'}</p>
-                                          <p className="font-semibold text-foreground">Dimensions:</p><p className="text-muted-foreground">{product.dimensions || 'N/A'}</p>
-                                          <p className="font-semibold text-foreground">Date Added:</p><p className="text-muted-foreground">{new Date(product.createdAt).toLocaleString()}</p>
-                                          <p className="font-semibold text-foreground">Last Updated:</p><p className="text-muted-foreground">{product.updatedAt ? new Date(product.updatedAt).toLocaleString() : 'Not yet updated'}</p>
+                  {products.map((product) => {
+                    const primaryImage = product.images?.find(img => img.isPrimary) || product.images?.[0];
+                    return (
+                      <Fragment key={product.id}>
+                        <TableRow onClick={() => handleToggleRow(product.id)} className="cursor-pointer hover:bg-muted/50">
+                          <TableCell>
+                            <ChevronDown className={`h-4 w-4 transition-transform ${expandedRowId === product.id ? 'rotate-180' : ''}`} />
+                          </TableCell>
+                          <TableCell>
+                            <a href={primaryImage?.imageUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
+                                <Avatar className="h-12 w-12 rounded-md">
+                                <AvatarImage src={primaryImage?.imageUrl} alt={primaryImage?.altText || product.name} className="object-cover" />
+                                <AvatarFallback className="rounded-md"><ImageIcon className="h-6 w-6 text-muted-foreground"/></AvatarFallback>
+                                </Avatar>
+                            </a>
+                          </TableCell>
+                          <TableCell className="font-medium max-w-xs truncate" title={product.name}>{product.name}</TableCell>
+                          <TableCell>{product.sku}</TableCell>
+                          <TableCell>${typeof product.basePrice === 'number' ? product.basePrice.toFixed(2) : (product.basePrice || 'N/A')}</TableCell>
+                          <TableCell>
+                            <Badge variant={product.available ? "default" : "secondary"} className={product.available ? 'bg-green-500 hover:bg-green-600' : 'bg-red-500 hover:bg-red-600'}>
+                              {product.available ? "Available" : "Unavailable"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right space-x-2">
+                            <Button variant="outline" size="sm" asChild onClick={e => e.stopPropagation()}>
+                                <Link href={`/seller/dashboard/product-manager/${product.id}`} title="Edit Product">
+                                <Edit3 className="mr-1 h-3 w-3" /> Edit
+                                </Link>
+                            </Button>
+                            <Button variant="destructive" size="sm" onClick={(e) => handleDeleteProduct(e, product)} title="Delete Product" disabled={isDeleting}>
+                                {isDeleting && productToDelete?.id === product.id ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Trash2 className="mr-1 h-3 w-3" />}
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                        {expandedRowId === product.id && (
+                          <TableRow className="bg-muted hover:bg-muted">
+                            <TableCell colSpan={7} className="p-0">
+                                <div className="p-6">
+                                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-6">
+                                    <div className="space-y-6">
+                                      <div>
+                                        <h4 className="font-headline text-base mb-2">Product Details</h4>
+                                        <div className="space-y-2 text-sm">
+                                          <div className="grid grid-cols-2 gap-2">
+                                            <p className="font-semibold text-foreground">Description:</p>
+                                            <p className="text-muted-foreground col-span-2">{product.description || 'N/A'}</p>
+                                          </div>
+                                          <Separator/>
+                                          <div className="grid grid-cols-2 gap-2">
+                                            <p className="font-semibold text-foreground">Category:</p><p className="text-muted-foreground">{product.category?.name || 'Uncategorized'}</p>
+                                            <p className="font-semibold text-foreground">MOQ:</p><p className="text-muted-foreground">{product.minimumOrderQuantity} units</p>
+                                            <p className="font-semibold text-foreground">Bulk Only:</p><p className="text-muted-foreground">{product.isBulkOnly ? 'Yes' : 'No'}</p>
+                                            <p className="font-semibold text-foreground">Weight:</p><p className="text-muted-foreground">{product.weight ? `${product.weight} ${product.weightUnit || ''}`.trim() : 'N/A'}</p>
+                                            <p className="font-semibold text-foreground">Dimensions:</p><p className="text-muted-foreground">{product.dimensions || 'N/A'}</p>
+                                            <p className="font-semibold text-foreground">Date Added:</p><p className="text-muted-foreground">{new Date(product.createdAt).toLocaleString()}</p>
+                                            <p className="font-semibold text-foreground">Last Updated:</p><p className="text-muted-foreground">{product.updatedAt ? new Date(product.updatedAt).toLocaleString() : 'Not yet updated'}</p>
+                                          </div>
                                         </div>
                                       </div>
-                                    </div>
-                                    <div>
-                                      <h4 className="font-headline text-base mb-2">Specifications</h4>
-                                      {product.specifications.length > 0 ? (
-                                          <div className="space-y-1 text-sm">
-                                            {product.specifications.map(spec => (
-                                              <div key={spec.id} className="grid grid-cols-2 gap-2">
-                                                  <p className="font-medium text-foreground">{spec.specName}:</p>
-                                                  <p className="text-muted-foreground">{spec.specValue} {spec.unit || ''}</p>
-                                              </div>
-                                            ))}
-                                          </div>
-                                      ) : (<p className="text-sm text-muted-foreground">No specifications provided.</p>)}
-                                    </div>
-                                  </div>
-                                  <div className="space-y-6">
-                                    <div>
-                                      <h4 className="font-headline text-base mb-2">Variants</h4>
-                                      {product.variants.length > 0 ? (
-                                        <div className="space-y-4">
-                                            {product.variants.map(v => (
-                                                <Card key={v.id} className="p-3 bg-background/50">
-                                                    <p className="font-semibold">{v.variantName || 'Default Variant'}</p>
-                                                    <p className="text-sm text-muted-foreground">SKU: {v.sku}</p>
-                                                    <p className="text-sm text-muted-foreground">Base Price: ${v.basePrice?.toFixed(2) || product.basePrice?.toFixed(2) || 'N/A'}</p>
-                                                    {v.priceTiers.length > 0 && (
-                                                        <div className="mt-2">
-                                                            <p className="text-xs font-semibold text-muted-foreground">PRICE TIERS</p>
-                                                            <Table className="bg-background mt-1">
-                                                              <TableHeader><TableRow><TableHead className="h-8">Min Qty</TableHead><TableHead className="h-8">Max Qty</TableHead><TableHead className="h-8">Price/Unit</TableHead></TableRow></TableHeader>
-                                                              <TableBody>
-                                                                {v.priceTiers.map(t => (
-                                                                  <TableRow key={t.id}><TableCell>{t.minQuantity}</TableCell><TableCell>{t.maxQuantity || '...'}</TableCell><TableCell>${t.pricePerUnit.toFixed(2)}</TableCell></TableRow>
-                                                                ))}
-                                                              </TableBody>
-                                                            </Table>
-                                                        </div>
-                                                    )}
-                                                </Card>
-                                            ))}
-                                        </div>
-                                      ) : (<p className="text-sm text-muted-foreground">No variants defined.</p>)}
-                                    </div>
-                                    <div>
-                                      <h4 className="font-headline text-base mb-2">Images</h4>
-                                      {product.images.length > 0 ? (
-                                          <ul className="text-sm space-y-1 list-disc list-inside">
-                                              {product.images.map(img => (
-                                                  <li key={img.id} className="text-muted-foreground truncate" title={img.imageUrl}>
-                                                      <a href={img.imageUrl} target="_blank" rel="noopener noreferrer" className="hover:text-primary underline">{img.imageUrl}</a>
-                                                      {img.isPrimary && <Badge variant="outline" className="ml-2">Primary</Badge>}
-                                                  </li>
+                                      <div>
+                                        <h4 className="font-headline text-base mb-2">Specifications</h4>
+                                        {product.specifications.length > 0 ? (
+                                            <div className="space-y-1 text-sm">
+                                              {product.specifications.map(spec => (
+                                                <div key={spec.id} className="grid grid-cols-2 gap-2">
+                                                    <p className="font-medium text-foreground">{spec.specName}:</p>
+                                                    <p className="text-muted-foreground">{spec.specValue} {spec.unit || ''}</p>
+                                                </div>
                                               ))}
-                                          </ul>
-                                      ) : (<p className="text-sm text-muted-foreground">No images added.</p>)}
+                                            </div>
+                                        ) : (<p className="text-sm text-muted-foreground">No specifications provided.</p>)}
+                                      </div>
+                                    </div>
+                                    <div className="space-y-6">
+                                      <div>
+                                        <h4 className="font-headline text-base mb-2">Variants</h4>
+                                        {product.variants.length > 0 ? (
+                                          <div className="space-y-4">
+                                              {product.variants.map(v => (
+                                                  <Card key={v.id} className="p-3 bg-background/50">
+                                                      <p className="font-semibold">{v.variantName || 'Default Variant'}</p>
+                                                      <p className="text-sm text-muted-foreground">SKU: {v.sku}</p>
+                                                      <p className="text-sm text-muted-foreground">Base Price: ${v.basePrice?.toFixed(2) || product.basePrice?.toFixed(2) || 'N/A'}</p>
+                                                      {v.priceTiers.length > 0 && (
+                                                          <div className="mt-2">
+                                                              <p className="text-xs font-semibold text-muted-foreground">PRICE TIERS</p>
+                                                              <Table className="bg-background mt-1">
+                                                                <TableHeader><TableRow><TableHead className="h-8">Min Qty</TableHead><TableHead className="h-8">Max Qty</TableHead><TableHead className="h-8">Price/Unit</TableHead></TableRow></TableHeader>
+                                                                <TableBody>
+                                                                  {v.priceTiers.map(t => (
+                                                                    <TableRow key={t.id}><TableCell>{t.minQuantity}</TableCell><TableCell>{t.maxQuantity || '...'}</TableCell><TableCell>${t.pricePerUnit.toFixed(2)}</TableCell></TableRow>
+                                                                  ))}
+                                                                </TableBody>
+                                                              </Table>
+                                                          </div>
+                                                      )}
+                                                  </Card>
+                                              ))}
+                                          </div>
+                                        ) : (<p className="text-sm text-muted-foreground">No variants defined.</p>)}
+                                      </div>
+                                      <div>
+                                        <h4 className="font-headline text-base mb-2">Images</h4>
+                                        {product.images.length > 0 ? (
+                                            <ul className="text-sm space-y-1 list-disc list-inside">
+                                                {product.images.map(img => (
+                                                    <li key={img.id} className="text-muted-foreground truncate" title={img.imageUrl}>
+                                                        <a href={img.imageUrl} target="_blank" rel="noopener noreferrer" className="hover:text-primary underline">{img.imageUrl}</a>
+                                                        {img.isPrimary && <Badge variant="outline" className="ml-2">Primary</Badge>}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        ) : (<p className="text-sm text-muted-foreground">No images added.</p>)}
+                                      </div>
                                     </div>
                                   </div>
                                 </div>
-                              </div>
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </Fragment>
-                  ))}
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </Fragment>
+                    );
+                  })}
                 </TableBody>
               </Table>
             )}
