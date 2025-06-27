@@ -29,7 +29,7 @@ const addressFormSchema = z.object({
   state: z.string().min(2, "State/Province is required.").max(100),
   postal_code: z.string().min(3, "Postal code is required.").max(20),
   country: z.string().min(2, "Country is required.").max(100),
-  is_default: z.boolean().default(false),
+  isDefault: z.boolean().default(false),
 });
 
 export type AddressFormValues = z.infer<typeof addressFormSchema>;
@@ -53,7 +53,7 @@ export function AddressForm({ initialData, onSubmit, onCancel, isSubmitting }: A
       state: initialData?.state || "",
       postal_code: initialData?.postal_code || "",
       country: initialData?.country || "Saudi Arabia",
-      is_default: initialData?.is_default || false,
+      isDefault: initialData?.isDefault || false, // Ensure isDefault is always a boolean
     },
   });
 
@@ -181,7 +181,7 @@ export function AddressForm({ initialData, onSubmit, onCancel, isSubmitting }: A
 
         <FormField
           control={form.control}
-          name="is_default"
+          name="isDefault"
           render={({ field }) => (
             <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
               <div className="space-y-0.5">

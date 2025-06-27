@@ -57,7 +57,6 @@ export interface SellerProduct {
   basePrice: number | null;
   available: boolean;
   description: string | null;
-  isBulkOnly: boolean;
   minimumOrderQuantity: number;
   weight: number | null;
   weightUnit: string | null;
@@ -90,7 +89,7 @@ export default function SellerProductManagerPage() {
     setIsLoading(true);
     setError(null);
     if (!accessToken || !currentUser?.id) {
-      setProducts([]); 
+      setProducts([]);
       setIsLoading(false);
       return;
     }
@@ -99,14 +98,14 @@ export default function SellerProductManagerPage() {
       const response = await fetch(`${API_BASE_URL}/products/seller/${currentUser.id}`, {
         headers: { 'Authorization': `Bearer ${accessToken}` },
       });
-      
+
       const responseData = await response.json();
       if (!response.ok) {
         throw new Error(responseData.message || 'Failed to fetch products');
       }
-      
+
       const sellerApiProducts: any[] = responseData.data || [];
-      
+
       const fetchedProducts: SellerProduct[] = sellerApiProducts.map((p: any) => ({
         id: p.id,
         name: p.name,
@@ -115,7 +114,6 @@ export default function SellerProductManagerPage() {
         basePrice: p.basePrice,
         available: p.available,
         description: p.description,
-        isBulkOnly: p.isBulkOnly,
         minimumOrderQuantity: p.minimumOrderQuantity,
         weight: p.weight,
         weightUnit: p.weightUnit,
@@ -124,41 +122,41 @@ export default function SellerProductManagerPage() {
         updatedAt: p.updatedAt,
         seller: p.seller,
         images: p.images?.map((img: any) => ({
-            id: img.id,
-            imageUrl: img.imageUrl,
-            altText: img.altText,
-            isPrimary: img.isPrimary,
+          id: img.id,
+          imageUrl: img.imageUrl,
+          altText: img.altText,
+          isPrimary: img.isPrimary,
         })) || [],
         specifications: p.specifications?.map((spec: any) => ({
-            id: spec.id,
-            specName: spec.specName,
-            specValue: spec.specValue,
-            unit: spec.unit,
+          id: spec.id,
+          specName: spec.specName,
+          specValue: spec.specValue,
+          unit: spec.unit,
         })) || [],
         variants: p.variants?.map((variant: any) => ({
-            id: variant.id,
-            sku: variant.sku,
-            variantName: variant.variantName,
-            basePrice: variant.basePrice,
-            additionalPrice: variant.additionalPrice,
-            available: variant.available,
-            priceTiers: variant.priceTiers?.map((tier: any) => ({
-              id: tier.id,
-              minQuantity: tier.minQuantity,
-              maxQuantity: tier.maxQuantity,
-              pricePerUnit: tier.pricePerUnit,
-              isActive: tier.isActive,
-            })) || []
+          id: variant.id,
+          sku: variant.sku,
+          variantName: variant.variantName,
+          basePrice: variant.basePrice,
+          additionalPrice: variant.additionalPrice,
+          available: variant.available,
+          priceTiers: variant.priceTiers?.map((tier: any) => ({
+            id: tier.id,
+            minQuantity: tier.minQuantity,
+            maxQuantity: tier.maxQuantity,
+            pricePerUnit: tier.pricePerUnit,
+            isActive: tier.isActive,
+          })) || []
         })) || [],
       }));
 
       setProducts(fetchedProducts);
-       if (fetchedProducts.length === 0) {
-         toast({ title: "No Products Found", description: "You haven't added any products yet."});
-       }
+      if (fetchedProducts.length === 0) {
+        toast({ title: "No Products Found", description: "You haven't added any products yet." });
+      }
     } catch (err: any) {
       setError(err.message || "An unexpected error occurred while fetching products.");
-      setProducts([]); 
+      setProducts([]);
       toast({
         variant: "destructive",
         title: "Error Fetching Products",
@@ -171,10 +169,10 @@ export default function SellerProductManagerPage() {
 
   useEffect(() => {
     if (accessToken && currentUser) {
-        fetchSellerProducts();
+      fetchSellerProducts();
     } else if (!accessToken || !currentUser) {
-        setProducts([]);
-        setIsLoading(false);
+      setProducts([]);
+      setIsLoading(false);
     }
   }, [accessToken, currentUser, fetchSellerProducts]);
 
@@ -185,8 +183,8 @@ export default function SellerProductManagerPage() {
 
   const confirmDeleteProduct = async () => {
     if (!productToDelete) return;
-    
-    if(!accessToken) {
+
+    if (!accessToken) {
       toast({ variant: "destructive", title: "Not Authenticated", description: "Please login to delete products." });
       setProductToDelete(null);
       return;
@@ -203,11 +201,11 @@ export default function SellerProductManagerPage() {
       if (!response.ok) {
         throw new Error(responseData.message || `Failed to delete product. Status: ${response.status}`);
       }
-      
+
       toast({ title: "Product Deleted", description: responseData.message || `${productToDelete.name} has been deleted.` });
-      fetchSellerProducts(); 
+      fetchSellerProducts();
     } catch (err: any) {
-       toast({ variant: "destructive", title: "Error Deleting Product", description: err.message });
+      toast({ variant: "destructive", title: "Error Deleting Product", description: err.message });
     } finally {
       setProductToDelete(null);
       setIsDeleting(false);
@@ -227,14 +225,29 @@ export default function SellerProductManagerPage() {
               <CardTitle className="font-headline">Your Products</CardTitle>
               <CardDescription>View, add, edit, or delete your product listings.</CardDescription>
             </div>
-            <Button
-              asChild
-              className="bg-accent text-accent-foreground hover:bg-accent/90"
-            >
-              <Link href="/seller/dashboard/product-manager/new">
-                <PlusCircle className="mr-2 h-4 w-4" /> Add New Product
-              </Link>
-            </Button>
+
+            <div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={fetchSellerProducts}
+                disabled={isLoading}
+                title="Refresh Products"
+              >
+                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Refresh
+              </Button>
+              <Button
+                asChild
+                className="bg-accent text-accent-foreground hover:bg-accent/90"
+              >
+                <Link href="/seller/dashboard/product-manager/new">
+                  <PlusCircle className="mr-2 h-4 w-4" /> Add New Product
+                </Link>
+              </Button>
+            </div>
+
+
           </CardHeader>
           <CardContent>
             {isLoading && (
@@ -254,7 +267,7 @@ export default function SellerProductManagerPage() {
                   You haven't added any products yet.
                 </p>
                 <Button variant="default" asChild className="bg-accent text-accent-foreground hover:bg-accent/90">
-                   <Link href="/seller/dashboard/product-manager/new">Add your first product!</Link>
+                  <Link href="/seller/dashboard/product-manager/new">Add your first product!</Link>
                 </Button>
               </div>
             )}
@@ -282,10 +295,10 @@ export default function SellerProductManagerPage() {
                           </TableCell>
                           <TableCell>
                             <a href={primaryImage?.imageUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
-                                <Avatar className="h-12 w-12 rounded-md">
+                              <Avatar className="h-12 w-12 rounded-md">
                                 <AvatarImage src={primaryImage?.imageUrl} alt={primaryImage?.altText || product.name} className="object-cover" />
-                                <AvatarFallback className="rounded-md"><ImageIcon className="h-6 w-6 text-muted-foreground"/></AvatarFallback>
-                                </Avatar>
+                                <AvatarFallback className="rounded-md"><ImageIcon className="h-6 w-6 text-muted-foreground" /></AvatarFallback>
+                              </Avatar>
                             </a>
                           </TableCell>
                           <TableCell className="font-medium max-w-xs truncate" title={product.name}>{product.name}</TableCell>
@@ -298,98 +311,102 @@ export default function SellerProductManagerPage() {
                           </TableCell>
                           <TableCell className="text-right space-x-2">
                             <Button variant="outline" size="sm" asChild onClick={e => e.stopPropagation()}>
-                                <Link href={`/seller/dashboard/product-manager/${product.id}`} title="Edit Product">
+                              <Link href={`/seller/dashboard/product-manager/${product.id}`} title="Edit Product">
                                 <Edit3 className="mr-1 h-3 w-3" /> Edit
-                                </Link>
+                              </Link>
                             </Button>
                             <Button variant="destructive" size="sm" onClick={(e) => handleDeleteProduct(e, product)} title="Delete Product" disabled={isDeleting}>
-                                {isDeleting && productToDelete?.id === product.id ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Trash2 className="mr-1 h-3 w-3" />}
+                              {isDeleting && productToDelete?.id === product.id ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Trash2 className="mr-1 h-3 w-3" />}
                             </Button>
                           </TableCell>
                         </TableRow>
                         {expandedRowId === product.id && (
                           <TableRow className="bg-muted hover:bg-muted">
                             <TableCell colSpan={7} className="p-0">
-                                <div className="p-6">
-                                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-6">
-                                    <div className="space-y-6">
-                                      <div>
-                                        <h4 className="font-headline text-base mb-2">Product Details</h4>
-                                        <div className="space-y-2 text-sm">
-                                          <div className="grid grid-cols-2 gap-2">
-                                            <p className="font-semibold text-foreground">Description:</p>
-                                            <p className="text-muted-foreground col-span-2">{product.description || 'N/A'}</p>
-                                          </div>
-                                          <Separator/>
-                                          <div className="grid grid-cols-2 gap-2">
-                                            <p className="font-semibold text-foreground">Category:</p><p className="text-muted-foreground">{product.category?.name || 'Uncategorized'}</p>
-                                            <p className="font-semibold text-foreground">MOQ:</p><p className="text-muted-foreground">{product.minimumOrderQuantity} units</p>
-                                            <p className="font-semibold text-foreground">Bulk Only:</p><p className="text-muted-foreground">{product.isBulkOnly ? 'Yes' : 'No'}</p>
-                                            <p className="font-semibold text-foreground">Weight:</p><p className="text-muted-foreground">{product.weight ? `${product.weight} ${product.weightUnit || ''}`.trim() : 'N/A'}</p>
-                                            <p className="font-semibold text-foreground">Dimensions:</p><p className="text-muted-foreground">{product.dimensions || 'N/A'}</p>
-                                            <p className="font-semibold text-foreground">Date Added:</p><p className="text-muted-foreground">{new Date(product.createdAt).toLocaleString()}</p>
-                                            <p className="font-semibold text-foreground">Last Updated:</p><p className="text-muted-foreground">{product.updatedAt ? new Date(product.updatedAt).toLocaleString() : 'Not yet updated'}</p>
-                                          </div>
+                              <div className="p-6">
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-6">
+                                  <div className="space-y-6">
+                                    <div>
+                                      <h4 className="font-headline text-base mb-2">Product Details</h4>
+                                      <div className="space-y-2 text-sm">
+                                        <div className="grid grid-cols-2 gap-2">
+                                          <p className="font-semibold text-foreground">Description:</p>
+                                          <p className="text-muted-foreground col-span-2">{product.description || 'N/A'}</p>
+                                        </div>
+                                        <Separator />
+                                        <div className="grid grid-cols-2 gap-2">
+                                          <p className="font-semibold text-foreground">Category:</p><p className="text-muted-foreground">{product.category?.name || 'Uncategorized'}</p>
+                                          <p className="font-semibold text-foreground">MOQ:</p><p className="text-muted-foreground">{product.minimumOrderQuantity} units</p>
+                                          <p className="font-semibold text-foreground">Weight:</p><p className="text-muted-foreground">{product.weight ? `${product.weight} ${product.weightUnit || ''}`.trim() : 'N/A'}</p>
+                                          <p className="font-semibold text-foreground">Dimensions:</p><p className="text-muted-foreground">{product.dimensions || 'N/A'}</p>
+                                          <p className="font-semibold text-foreground">Date Added:</p><p className="text-muted-foreground">{new Date(product.createdAt).toLocaleString()}</p>
+                                          <p className="font-semibold text-foreground">Last Updated:</p><p className="text-muted-foreground">{product.updatedAt ? new Date(product.updatedAt).toLocaleString() : 'Not yet updated'}</p>
                                         </div>
                                       </div>
-                                      <div>
-                                        <h4 className="font-headline text-base mb-2">Specifications</h4>
-                                        {product.specifications.length > 0 ? (
-                                            <div className="space-y-1 text-sm">
-                                              {product.specifications.map(spec => (
-                                                <div key={spec.id} className="grid grid-cols-2 gap-2">
-                                                    <p className="font-medium text-foreground">{spec.specName}:</p>
-                                                    <p className="text-muted-foreground">{spec.specValue} {spec.unit || ''}</p>
-                                                </div>
-                                              ))}
-                                            </div>
-                                        ) : (<p className="text-sm text-muted-foreground">No specifications provided.</p>)}
-                                      </div>
                                     </div>
-                                    <div className="space-y-6">
-                                      <div>
-                                        <h4 className="font-headline text-base mb-2">Variants</h4>
-                                        {product.variants.length > 0 ? (
-                                          <div className="space-y-4">
-                                              {product.variants.map(v => (
-                                                  <Card key={v.id} className="p-3 bg-background/50">
-                                                      <p className="font-semibold">{v.variantName || 'Default Variant'}</p>
-                                                      <p className="text-sm text-muted-foreground">SKU: {v.sku}</p>
-                                                      <p className="text-sm text-muted-foreground">Base Price: ${v.basePrice?.toFixed(2) || product.basePrice?.toFixed(2) || 'N/A'}</p>
-                                                      {v.priceTiers.length > 0 && (
-                                                          <div className="mt-2">
-                                                              <p className="text-xs font-semibold text-muted-foreground">PRICE TIERS</p>
-                                                              <Table className="bg-background mt-1">
-                                                                <TableHeader><TableRow><TableHead className="h-8">Min Qty</TableHead><TableHead className="h-8">Max Qty</TableHead><TableHead className="h-8">Price/Unit</TableHead></TableRow></TableHeader>
-                                                                <TableBody>
-                                                                  {v.priceTiers.map(t => (
-                                                                    <TableRow key={t.id}><TableCell>{t.minQuantity}</TableCell><TableCell>{t.maxQuantity || '...'}</TableCell><TableCell>${t.pricePerUnit.toFixed(2)}</TableCell></TableRow>
-                                                                  ))}
-                                                                </TableBody>
-                                                              </Table>
-                                                          </div>
-                                                      )}
-                                                  </Card>
-                                              ))}
-                                          </div>
-                                        ) : (<p className="text-sm text-muted-foreground">No variants defined.</p>)}
-                                      </div>
-                                      <div>
-                                        <h4 className="font-headline text-base mb-2">Images</h4>
-                                        {product.images.length > 0 ? (
-                                            <ul className="text-sm space-y-1 list-disc list-inside">
-                                                {product.images.map(img => (
-                                                    <li key={img.id} className="text-muted-foreground truncate" title={img.imageUrl}>
-                                                        <a href={img.imageUrl} target="_blank" rel="noopener noreferrer" className="hover:text-primary underline">{img.imageUrl}</a>
-                                                        {img.isPrimary && <Badge variant="outline" className="ml-2">Primary</Badge>}
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        ) : (<p className="text-sm text-muted-foreground">No images added.</p>)}
-                                      </div>
+                                    <div>
+                                      <h4 className="font-headline text-base mb-2">Specifications</h4>
+                                      {product.specifications.length > 0 ? (
+                                        <div className="space-y-1 text-sm">
+                                          {product.specifications.map(spec => (
+                                            <div key={spec.id} className="grid grid-cols-2 gap-2">
+                                              <p className="font-medium text-foreground">{spec.specName}:</p>
+                                              <p className="text-muted-foreground">{spec.specValue} {spec.unit || ''}</p>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      ) : (<p className="text-sm text-muted-foreground">No specifications provided.</p>)}
+                                    </div>
+                                  </div>
+                                  <div className="space-y-6">
+                                    <div>
+                                      <h4 className="font-headline text-base mb-2">Variants</h4>
+                                      {product.variants.length > 0 ? (
+                                        <div className="space-y-4">
+                                          {product.variants.map(v => (
+                                            <Card key={v.id} className="p-3 bg-background/50">
+                                              <p className="font-semibold">{v.variantName || 'Default Variant'}</p>
+                                              <p className="text-sm text-muted-foreground">SKU: {v.sku}</p>
+                                              <p className="text-sm text-muted-foreground">Base Price: ${v.basePrice?.toFixed(2) || product.basePrice?.toFixed(2) || 'N/A'}</p>
+                                              {v.priceTiers.length > 0 && (
+                                                <div className="mt-2">
+                                                  <p className="text-xs font-semibold text-muted-foreground">PRICE TIERS</p>
+                                                  <Table className="bg-background mt-1">
+                                                    <TableHeader><TableRow><TableHead className="h-8">Min Qty</TableHead><TableHead className="h-8">Max Qty</TableHead><TableHead className="h-8">Price/Unit</TableHead></TableRow></TableHeader>
+                                                    <TableBody>
+                                                      {v.priceTiers.map(t => (
+                                                        <TableRow key={t.id}><TableCell>{t.minQuantity}</TableCell><TableCell>{t.maxQuantity || '...'}</TableCell><TableCell>${t.pricePerUnit.toFixed(2)}</TableCell></TableRow>
+                                                      ))}
+                                                    </TableBody>
+                                                  </Table>
+                                                </div>
+                                              )}
+                                            </Card>
+                                          ))}
+                                        </div>
+                                      ) : (<p className="text-sm text-muted-foreground">No variants defined.</p>)}
+                                    </div>
+                                    <div>
+                                      <h4 className="font-headline text-base mb-2">Images</h4>
+                                      {product.images.length > 0 ? (
+                                        <ul className="text-sm space-y-1 list-disc list-inside">
+                                          {product.images.map(img => (
+                                            <li key={img.id} className="text-muted-foreground" title={img.imageUrl}>
+                                              <a href={img.imageUrl} target="_blank" rel="noopener noreferrer" className="hover:text-primary underline">{img.imageUrl}</a>
+                                              {img.isPrimary && <Badge variant="outline" className="ml-2">Primary</Badge>}
+                                              <Avatar className="h-16 w-16 rounded-md mt-2">
+                                                <AvatarImage src={img.imageUrl} alt={img.altText || product.name} className="object-cover" />
+                                                <AvatarFallback className="rounded-md"><ImageIcon className="h-8 w-8 text-muted-foreground" />
+                                                </AvatarFallback>
+                                              </Avatar>
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      ) : (<p className="text-sm text-muted-foreground">No images added.</p>)}
                                     </div>
                                   </div>
                                 </div>
+                              </div>
                             </TableCell>
                           </TableRow>
                         )}
@@ -404,7 +421,7 @@ export default function SellerProductManagerPage() {
       </main>
 
       {productToDelete && (
-        <AlertDialog open={!!productToDelete} onOpenChange={(isOpen) => { if(!isOpen) setProductToDelete(null); }}>
+        <AlertDialog open={!!productToDelete} onOpenChange={(isOpen) => { if (!isOpen) setProductToDelete(null); }}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Are you sure you want to delete &quot;{productToDelete.name}&quot;?</AlertDialogTitle>
@@ -415,7 +432,7 @@ export default function SellerProductManagerPage() {
             <AlertDialogFooter>
               <AlertDialogCancel onClick={() => setProductToDelete(null)} disabled={isDeleting}>Cancel</AlertDialogCancel>
               <AlertDialogAction onClick={confirmDeleteProduct} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={isDeleting}>
-                {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
+                {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                 Yes, Delete Product
               </AlertDialogAction>
             </AlertDialogFooter>

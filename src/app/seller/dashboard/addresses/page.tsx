@@ -27,6 +27,8 @@ export interface ApiAddress {
   postalCode: string;
   country: string;
   isDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export default function SellerAddressesPage() {
@@ -34,7 +36,7 @@ export default function SellerAddressesPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isMutating, setIsMutating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedAddressToEdit, setSelectedAddressToEdit] = useState<ApiAddress | null>(null);
@@ -57,12 +59,12 @@ export default function SellerAddressesPage() {
       const response = await fetch(`${API_BASE_URL}/addresses/user?userId=${currentUser.id}`, {
         headers: { 'Authorization': `Bearer ${accessToken}` },
       });
-      
+
       const responseData = await response.json();
       if (!response.ok) {
         throw new Error(responseData.message || 'Failed to fetch addresses.');
       }
-      
+
       setAddresses(responseData.data || []);
       if (!responseData.data || responseData.data.length === 0) {
         toast({ title: "No Addresses Found", description: "You haven't added any addresses yet." });
@@ -125,7 +127,7 @@ export default function SellerAddressesPage() {
       setIsMutating(false);
     }
   };
-  
+
   const confirmDelete = async () => {
     if (!addressToDelete || !accessToken) return;
     setIsMutating(true);
@@ -164,9 +166,13 @@ export default function SellerAddressesPage() {
               <CardTitle className="font-headline">Your Address Book</CardTitle>
               <CardDescription>Manage addresses for shipping, billing, and warehouses.</CardDescription>
             </div>
-            <Button onClick={() => setIsAddModalOpen(true)} className="bg-accent text-accent-foreground hover:bg-accent/90">
-              <PlusCircle className="mr-2 h-4 w-4" /> Add New Address
-            </Button>
+            <div>
+              <Button onClick={() => setIsAddModalOpen(true)} className="bg-accent text-accent-foreground hover:bg-accent/90">
+                <PlusCircle className="mr-2 h-4 w-4" /> Add New Address
+              </Button>
+              <Button onClick={fetchAddresses} className="bg-accent text-accent-foreground hover:bg-accent/90 ml-2">Refresh</Button>
+            </div>
+
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -198,7 +204,7 @@ export default function SellerAddressesPage() {
                     <TableRow key={address.id}>
                       <TableCell><Badge variant="outline">{address.addressType}</Badge></TableCell>
                       <TableCell className="font-medium max-w-xs truncate" title={address.streetAddress1}>{address.streetAddress1}</TableCell>
-                      <TableCell>{address.city}, {address.state}</TableCell>
+                      <TableCell>{address.city}, {address.state}, {address.postalCode}</TableCell>
                       <TableCell>
                         {address.isDefault && <Badge>Yes</Badge>}
                       </TableCell>
@@ -226,9 +232,9 @@ export default function SellerAddressesPage() {
             <DialogTitle className="font-headline flex items-center"><MapPin className="mr-2 h-5 w-5 text-primary" />Add New Address</DialogTitle>
             <DialogDescription>Enter the details for the new address.</DialogDescription>
           </DialogHeader>
-          <AddressForm 
+          <AddressForm
             isSubmitting={isMutating}
-            onSubmit={handleAddSubmit} 
+            onSubmit={handleAddSubmit}
             onCancel={() => setIsAddModalOpen(false)}
           />
         </DialogContent>
@@ -242,9 +248,9 @@ export default function SellerAddressesPage() {
             <DialogDescription>Update the details for this address.</DialogDescription>
           </DialogHeader>
           {selectedAddressToEdit && (
-            <AddressForm 
+            <AddressForm
               isSubmitting={isMutating}
-              initialData={{...selectedAddressToEdit, company_name: selectedAddressToEdit.companyName, street_address_1: selectedAddressToEdit.streetAddress1, street_address_2: selectedAddressToEdit.streetAddress2, postal_code: selectedAddressToEdit.postalCode, is_default: selectedAddressToEdit.isDefault, addressType: selectedAddressToEdit.addressType }}
+              initialData={{ ...selectedAddressToEdit, company_name: selectedAddressToEdit.companyName, street_address_1: selectedAddressToEdit.streetAddress1, street_address_2: selectedAddressToEdit.streetAddress2, postal_code: selectedAddressToEdit.postalCode, is_default: selectedAddressToEdit.isDefault, addressType: selectedAddressToEdit.addressType }}
               onSubmit={handleEditSubmit}
               onCancel={() => setIsEditModalOpen(false)}
             />
