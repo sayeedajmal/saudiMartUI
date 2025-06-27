@@ -17,21 +17,21 @@ import { Separator } from '@/components/ui/separator';
 import { API_BASE_URL } from '@/lib/api';
 
 interface ProductImage {
-  id: number;
+  id: string;
   imageUrl: string;
   altText: string | null;
   isPrimary: boolean;
 }
 
 interface ProductSpecification {
-  id: number;
+  id: string;
   specName: string;
   specValue: string;
   unit: string | null;
 }
 
 interface PriceTier {
-  id: number;
+  id: string;
   minQuantity: number;
   maxQuantity: number | null;
   pricePerUnit: number;
@@ -39,7 +39,7 @@ interface PriceTier {
 }
 
 interface ProductVariant {
-  id: number;
+  id: string;
   sku: string;
   variantName: string | null;
   basePrice: number | null;
@@ -49,10 +49,10 @@ interface ProductVariant {
 }
 
 export interface SellerProduct {
-  id: number;
+  id: string;
   name: string;
   sku: string;
-  category: { id: number; name: string; } | null;
+  category: { id: string; name: string; } | null;
   basePrice: number | null;
   available: boolean;
   description: string | null;
@@ -75,13 +75,13 @@ export default function SellerProductManagerPage() {
   const [error, setError] = useState<string | null>(null);
   const [productToDelete, setProductToDelete] = useState<SellerProduct | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [expandedRowId, setExpandedRowId] = useState<number | null>(null);
+  const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
 
   const accessToken = useSelector(selectAccessToken);
   const currentUser = useSelector(selectUser) as MyProfile | null;
   const { toast } = useToast();
 
-  const handleToggleRow = (productId: number) => {
+  const handleToggleRow = (productId: string) => {
     setExpandedRowId(currentId => (currentId === productId ? null : productId));
   };
 
@@ -95,7 +95,7 @@ export default function SellerProductManagerPage() {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/products`, {
+      const response = await fetch(`${API_BASE_URL}/products/seller/${currentUser.id}`, {
         headers: { 'Authorization': `Bearer ${accessToken}` },
       });
       
@@ -104,10 +104,9 @@ export default function SellerProductManagerPage() {
         throw new Error(responseData.message || 'Failed to fetch products');
       }
       
-      const allProducts: any[] = responseData.data || [];
-      const sellerSpecificProducts = allProducts.filter(p => p.seller?.id?.toString() === currentUser.id);
+      const sellerApiProducts: any[] = responseData.data || [];
       
-      const fetchedProducts: SellerProduct[] = sellerSpecificProducts.map((p: any) => ({
+      const fetchedProducts: SellerProduct[] = sellerApiProducts.map((p: any) => ({
         id: p.id,
         name: p.name,
         sku: p.sku,
@@ -123,13 +122,13 @@ export default function SellerProductManagerPage() {
         createdAt: p.createdAt,
         updatedAt: p.updatedAt,
         seller: p.seller,
-        images: p.productImages?.map((img: any) => ({
+        images: p.images?.map((img: any) => ({
             id: img.id,
             imageUrl: img.imageUrl,
             altText: img.altText,
             isPrimary: img.isPrimary,
         })) || [],
-        specifications: p.productSpecifications?.map((spec: any) => ({
+        specifications: p.specifications?.map((spec: any) => ({
             id: spec.id,
             specName: spec.specName,
             specValue: spec.specValue,
