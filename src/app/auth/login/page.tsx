@@ -71,16 +71,21 @@ export default function LoginPage() {
         }),
       });
 
-      const responseData = await response.json();
-
       if (!response.ok) {
-        const errorMessage = responseData.message || `Login failed with status: ${response.status}`;
+        let errorMessage = `Login failed with status: ${response.status}`;
+        try {
+            const errorData = await response.json();
+            errorMessage = errorData.message || JSON.stringify(errorData);
+        } catch (e) {
+            const textError = await response.text();
+            if(textError) errorMessage = textError;
+        }
         throw new Error(errorMessage);
       }
       
-      // Assuming login response data structure is the same as signup
+      const responseData = await response.json();
       const loginData: SignupResponseData = responseData.data; 
-      dispatch(signupSuccess(loginData)); // Reusing signupSuccess action
+      dispatch(signupSuccess(loginData));
       
       toast({
         title: "Login Successful!",

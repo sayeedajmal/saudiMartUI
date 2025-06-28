@@ -105,13 +105,19 @@ export default function SignupPage() {
         body: JSON.stringify(apiRequestBody),
       });
 
-      const responseData = await response.json();
-
       if (!response.ok) {
-        const errorMessage = responseData.message || `Signup failed with status: ${response.status}`;
+        let errorMessage = `Signup failed with status: ${response.status}`;
+        try {
+            const errorData = await response.json();
+            errorMessage = errorData.message || JSON.stringify(errorData);
+        } catch (e) {
+            const textError = await response.text();
+            if(textError) errorMessage = textError;
+        }
         throw new Error(errorMessage);
       }
-      
+
+      const responseData = await response.json();
       const signupData: SignupResponseData = responseData.data;
       dispatch(signupSuccess(signupData));
       
