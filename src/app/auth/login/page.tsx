@@ -28,7 +28,7 @@ import { Loader2, Eye, EyeOff } from "lucide-react"; // Added Eye, EyeOff
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
 import { useDispatch } from 'react-redux';
-import { setLoading, signupSuccess, authError, type SignupResponseData } from '@/lib/redux/slices/userSlice';
+import { setLoading, signupSuccess, authError, type SignupResponseData, type MyProfile } from '@/lib/redux/slices/userSlice';
 import { useRouter } from 'next/navigation';
 import HeroSectionImg from "../../../assets/HeroSectionImage.png";
 import { API_BASE_URL } from '@/lib/api';
@@ -40,6 +40,61 @@ const loginSchema = z.object({
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
+
+// This function attempts to parse the non-standard success response from the API.
+function parseAuthDataFromString(dataString: string): SignupResponseData | null {
+    try {
+        const accessTokenMatch = dataString.match(/accessToken=([^,]+)/);
+        const refreshTokenMatch = dataString.match(/refreshToken=([^}]+)/);
+        const profileStringMatch = dataString.match(/myProfile=Users\(([^)]+)\)/);
+
+        if (!accessTokenMatch || !refreshTokenMatch || !profileStringMatch) {
+            console.error("Could not find all required fields in auth string");
+            return null;
+        }
+
+        const accessToken = accessTokenMatch[1];
+        const refreshToken = refreshTokenMatch[1];
+        const profileContent = profileStringMatch[1];
+
+        const profileData: { [key: string]: string | null } = {};
+        const profilePairs = profileContent.split(/, (?=\w+=)/);
+        profilePairs.forEach(pair => {
+            const eqIndex = pair.indexOf('=');
+            if (eqIndex > -1) {
+                const key = pair.substring(0, eqIndex);
+                const value = pair.substring(eqIndex + 1);
+                profileData[key] = value === 'null' ? null : value;
+            }
+        });
+
+        if (!profileData.id || !profileData.email) {
+            console.error("Parsed profile data is missing essential fields (id, email)");
+            return null;
+        }
+
+        const myProfile: MyProfile = {
+            id: profileData.id,
+            name: profileData.name || '',
+            email: profileData.email,
+            phoneNumber: profileData.phoneNumber || null,
+            role: profileData.role || 'BUYER',
+            isVerified: profileData.isVerified === 'true',
+            createdAt: profileData.createdAt || '',
+            enabled: profileData.enabled === 'true',
+            accountNonExpired: profileData.accountNonExpired === 'true',
+            accountNonLocked: profileData.accountNonLocked === 'true',
+            credentialsNonExpired: profileData.credentialsNonExpired === 'true',
+            username: profileData.username || profileData.email,
+        };
+
+        return { myProfile, accessToken, refreshToken };
+    } catch (e) {
+        console.error("Failed to parse custom auth data string:", e);
+        return null;
+    }
+}
+
 
 export default function LoginPage() {
   const { toast } = useToast();
@@ -78,27 +133,41 @@ export default function LoginPage() {
             errorMessage = errorData.message || JSON.stringify(errorData);
         } catch (e) {
             const textError = await response.text();
-            if(textError) errorMessage = textError;
+            if(textError) errorMessage = `Server returned an error: ${textError.substring(0, 200)}...`;
         }
         throw new Error(errorMessage);
       }
       
       const responseData = await response.json();
-      const loginData: SignupResponseData = responseData.data; 
-      dispatch(signupSuccess(loginData));
-      
-      toast({
-        title: "Login Successful!",
-        description: responseData.message || "Welcome back!",
-      });
+      let loginData: SignupResponseData | null = null;
 
-      // Redirect based on role
-      if (loginData.myProfile.role === 'SELLER') {
-        router.push('/seller/dashboard');
-      } else if (loginData.myProfile.role === 'BUYER') {
-        router.push('/buyer/dashboard');
+      // Check if the 'data' field is a valid object or the special string format
+      if (responseData.data && typeof responseData.data === 'object') {
+        loginData = responseData.data;
+      } else if (responseData.data && typeof responseData.data === 'string') {
+        loginData = parseAuthDataFromString(responseData.data);
+      }
+
+      if (loginData && loginData.myProfile) {
+        dispatch(signupSuccess(loginData));
+        
+        toast({
+          title: "Login Successful!",
+          description: "Welcome back!",
+        });
+
+        // Redirect based on role
+        if (loginData.myProfile.role === 'SELLER') {
+          router.push('/seller/dashboard');
+        } else if (loginData.myProfile.role === 'BUYER') {
+          router.push('/buyer/dashboard');
+        } else if (loginData.myProfile.role === 'ADMIN') {
+          router.push('/admin/dashboard');
+        } else {
+          router.push('/');
+        }
       } else {
-        router.push('/'); // Default redirect if role is not buyer or seller
+         throw new Error("Failed to parse successful authentication response from server.");
       }
 
     } catch (error: any) {
