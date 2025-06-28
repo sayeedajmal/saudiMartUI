@@ -21,6 +21,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { SellerProduct } from '@/app/seller/dashboard/product-manager/page';
 import { ApiWarehouse } from '@/app/seller/dashboard/warehouses/page';
 import { InventoryForm, InventoryFormValues } from '@/components/features/seller/inventory-form';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 
 
 interface ApiInventoryItem {
@@ -28,6 +29,7 @@ interface ApiInventoryItem {
   product: {
     id: string;
     name: string;
+    images: { imageUrl: string; isPrimary: boolean; }[];
   };
   variant?: {
     id: string;
@@ -47,6 +49,7 @@ interface InventoryItem {
   inventory_id: string;
   product_id: string;
   product_name: string;
+  product_image_url?: string;
   variant_id?: string;
   variant_name?: string;
   warehouse_id: string;
@@ -100,21 +103,32 @@ export default function SellerInventoryManagementPage() {
 
       // Handle Inventory
       const inventoryData = await inventoryRes.json();
-      if (!inventoryRes.ok) throw new Error(inventoryData.message || 'Failed to fetch inventory');
+      if (!inventoryRes.ok) {
+        let errorMsg = inventoryData.message || 'Failed to fetch inventory';
+        if (typeof inventoryData === 'string') {
+          errorMsg = `Server returned an error: ${inventoryData.substring(0, 100)}...`;
+        }
+        throw new Error(errorMsg);
+      }
+      
       const apiInventory: ApiInventoryItem[] = inventoryData.data || [];
-      const flattenedInventory: InventoryItem[] = apiInventory.map(item => ({
-        inventory_id: String(item.id),
-        product_id: String(item.product.id),
-        product_name: item.product.name,
-        variant_id: item.variant ? String(item.variant.id) : undefined,
-        variant_name: item.variant ? item.variant.variantName : undefined,
-        warehouse_id: String(item.warehouse.id),
-        warehouse_name: item.warehouse.name,
-        quantity: item.quantity,
-        reserved_quantity: item.reservedQuantity,
-        reorder_level: item.reorderLevel,
-        last_updated: new Date(item.lastUpdated).toLocaleDateString(),
-      }));
+      const flattenedInventory: InventoryItem[] = apiInventory.map(item => {
+        const primaryImage = item.product?.images?.find(img => img.isPrimary) || item.product?.images?.[0];
+        return {
+          inventory_id: String(item.id),
+          product_id: String(item.product.id),
+          product_name: item.product.name,
+          product_image_url: primaryImage?.imageUrl,
+          variant_id: item.variant ? String(item.variant.id) : undefined,
+          variant_name: item.variant ? item.variant.variantName : undefined,
+          warehouse_id: String(item.warehouse.id),
+          warehouse_name: item.warehouse.name,
+          quantity: item.quantity,
+          reserved_quantity: item.reservedQuantity,
+          reorder_level: item.reorderLevel,
+          last_updated: new Date(item.lastUpdated).toLocaleDateString(),
+        }
+      });
       setInventoryItems(flattenedInventory);
 
       // Handle Products
@@ -253,6 +267,7 @@ export default function SellerInventoryManagementPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>Image</TableHead>
                     <TableHead>Product</TableHead><TableHead>Variant</TableHead><TableHead>Warehouse</TableHead>
                     <TableHead className="text-right">Quantity</TableHead><TableHead className="text-right">Reserved</TableHead><TableHead className="text-right">Reorder Level</TableHead>
                     <TableHead>Last Updated</TableHead><TableHead className="text-right">Actions</TableHead>
@@ -261,6 +276,16 @@ export default function SellerInventoryManagementPage() {
                 <TableBody>
                   {inventoryItems.map((item) => (
                     <TableRow key={item.inventory_id}>
+                       <TableCell>
+                        <a href={item.product_image_url || '#'} target="_blank" rel="noopener noreferrer" onClick={(e) => !item.product_image_url && e.preventDefault()}>
+                          <Avatar className="h-12 w-12 rounded-md">
+                            <AvatarImage src={item.product_image_url} alt={item.product_name} className="object-cover" />
+                            <AvatarFallback className="rounded-md bg-muted">
+                              <Boxes className="h-6 w-6 text-muted-foreground"/>
+                            </AvatarFallback>
+                          </Avatar>
+                        </a>
+                      </TableCell>
                       <TableCell className="font-medium max-w-[200px] truncate" title={item.product_name}>{item.product_name}</TableCell>
                       <TableCell className="max-w-[150px] truncate" title={item.variant_name}>{item.variant_name || 'N/A'}</TableCell>
                       <TableCell className="max-w-[150px] truncate" title={item.warehouse_name}>{item.warehouse_name}</TableCell>
