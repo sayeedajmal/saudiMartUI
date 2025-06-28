@@ -15,14 +15,15 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { WarehouseForm, type WarehouseFormValues } from '@/components/features/seller/warehouse-form';
 import { Badge } from '@/components/ui/badge';
 import { API_BASE_URL } from '@/lib/api';
+import type { ApiAddress } from '@/app/seller/dashboard/addresses/page';
 
-// This interface matches the nested structure from the API response
+
 export interface ApiWarehouse {
-  id: number;
+  id: string;
   name: string;
   isActive: boolean;
   address: {
-    id: number;
+    id: string;
     companyName: string | null;
     streetAddress1: string;
     streetAddress2: string | null;
@@ -32,38 +33,34 @@ export interface ApiWarehouse {
     country: string;
     isDefault: boolean;
   };
-  seller: {
+  seller?: {
     id: string;
   };
 }
 
-// This interface is a flattened version, easier to work with in the frontend state and forms
-export interface SellerWarehouse extends WarehouseFormValues {
-  id: string; // Use string for potential UUIDs or DB IDs
-}
-
-
 export default function SellerWarehousesPage() {
-  const [warehouses, setWarehouses] = useState<SellerWarehouse[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [warehouses, setWarehouses] = useState<ApiWarehouse[]>([]);
+  const [sellerAddresses, setSellerAddresses] = useState<ApiAddress[]>([]);
+  const [isLoadingWarehouses, setIsLoadingWarehouses] = useState(true);
+  const [isLoadingAddresses, setIsLoadingAddresses] = useState(true);
+  const [isMutating, setIsMutating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [selectedWarehouseToEdit, setSelectedWarehouseToEdit] = useState<SellerWarehouse | null>(null);
-  const [warehouseToDelete, setWarehouseToDelete] = useState<SellerWarehouse | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
+  const [selectedWarehouseToEdit, setSelectedWarehouseToEdit] = useState<ApiWarehouse | null>(null);
+  const [warehouseToDelete, setWarehouseToDelete] = useState<ApiWarehouse | null>(null);
 
   const accessToken = useSelector(selectAccessToken);
   const currentUser = useSelector(selectUser) as MyProfile | null;
   const { toast } = useToast();
 
   const fetchWarehouses = useCallback(async () => {
-    setIsLoading(true);
+    setIsLoadingWarehouses(true);
     setError(null);
     if (!accessToken || !currentUser?.id) {
       setWarehouses([]);
-      setIsLoading(false);
+      setIsLoadingWarehouses(false);
       return;
     }
 
@@ -73,86 +70,119 @@ export default function SellerWarehousesPage() {
       });
       
       const responseData = await response.json();
-      if (!response.ok) {
-        throw new Error(responseData.message || 'Failed to fetch warehouses for this seller.');
-      }
+      if (!response.ok) throw new Error(responseData.message || 'Failed to fetch warehouses.');
       
-      const sellerApiWarehouses: ApiWarehouse[] = responseData.data || [];
-      
-      const flattenedWarehouses: SellerWarehouse[] = sellerApiWarehouses.map(w => ({
-        id: String(w.id),
-        name: w.name,
-        company_name: w.address.companyName,
-        street_address_1: w.address.streetAddress1,
-        street_address_2: w.address.streetAddress2,
-        city: w.address.city,
-        state: w.address.state,
-        postal_code: w.address.postalCode,
-        country: w.address.country,
-        is_active: w.isActive,
-      }));
-
-      setWarehouses(flattenedWarehouses);
-
+      setWarehouses(responseData.data || []);
     } catch (err: any) {
-      setError(err.message || "An unexpected error occurred while fetching warehouses.");
-      setWarehouses([]);
-      toast({
-        variant: "destructive",
-        title: "Error Fetching Warehouses",
-        description: err.message,
-      });
+      setError(err.message);
+      toast({ variant: "destructive", title: "Error Fetching Warehouses", description: err.message });
     } finally {
-      setIsLoading(false);
+      setIsLoadingWarehouses(false);
+    }
+  }, [accessToken, currentUser, toast]);
+
+  const fetchAddresses = useCallback(async () => {
+    setIsLoadingAddresses(true);
+    if (!accessToken || !currentUser?.id) {
+        setSellerAddresses([]);
+        setIsLoadingAddresses(false);
+        return;
+    }
+    try {
+        const response = await fetch(`${API_BASE_URL}/addresses/user?userId=${currentUser.id}`, {
+            headers: { 'Authorization': `Bearer ${accessToken}` },
+        });
+        const responseData = await response.json();
+        if (!response.ok) throw new Error(responseData.message || "Failed to fetch addresses.");
+        setSellerAddresses(responseData.data || []);
+    } catch (err: any) {
+        toast({ variant: "destructive", title: "Could not load addresses", description: "Warehouses cannot be created or edited without addresses." });
+        setSellerAddresses([]);
+    } finally {
+        setIsLoadingAddresses(false);
     }
   }, [accessToken, currentUser, toast]);
 
   useEffect(() => {
     fetchWarehouses();
-  }, [fetchWarehouses]);
+    fetchAddresses();
+  }, [fetchWarehouses, fetchAddresses]);
 
-  // Simulation handlers for CUD operations
-  const handleAddSuccess = async (newWarehouseData: WarehouseFormValues) => {
-    // This would be a POST API call
-    setIsAddModalOpen(false);
-    setIsLoading(true);
-    await new Promise(res => setTimeout(res, 500)); // Simulate network delay
-    toast({ title: "Warehouse Added (Simulated)", description: "This is a simulated action. No data was sent to the server." });
-    fetchWarehouses(); // Refetch the list to show the "updated" data from server
-  };
+  const handleFormSubmit = async (values: WarehouseFormValues) => {
+    if (!accessToken || !currentUser) return;
+    setIsMutating(true);
+    
+    const isEdit = modalMode === 'edit' && selectedWarehouseToEdit;
+    const url = isEdit ? `${API_BASE_URL}/warehouses/${selectedWarehouseToEdit.id}` : `${API_BASE_URL}/warehouses`;
+    const method = isEdit ? 'PUT' : 'POST';
 
-  const handleEditSuccess = async (updatedWarehouseData: WarehouseFormValues) => {
-    if (!selectedWarehouseToEdit) return;
-    // This would be a PUT API call to /warehouses/{id}
-    setIsEditModalOpen(false);
-    setSelectedWarehouseToEdit(null);
-    setIsLoading(true);
-    await new Promise(res => setTimeout(res, 500));
-    toast({ title: "Warehouse Updated (Simulated)", description: "This is a simulated action. No data was sent to the server." });
-    fetchWarehouses();
+    const payload = {
+      id: isEdit ? selectedWarehouseToEdit.id : undefined,
+      name: values.name,
+      isActive: values.is_active,
+      seller: { id: currentUser.id },
+      address: { id: values.addressId }
+    };
+
+    try {
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+        body: JSON.stringify(payload)
+      });
+      const responseData = await response.json();
+      if (!response.ok) throw new Error(responseData.message || `Failed to ${isEdit ? 'update' : 'create'} warehouse.`);
+
+      toast({ title: `Warehouse ${isEdit ? 'Updated' : 'Created'}!`, description: responseData.message });
+      setIsModalOpen(false);
+      fetchWarehouses();
+    } catch (err: any) {
+      toast({ variant: "destructive", title: `Error ${isEdit ? 'Updating' : 'Creating'} Warehouse`, description: err.message });
+    } finally {
+      setIsMutating(false);
+    }
   };
   
   const confirmDeleteWarehouse = async () => {
-    if (!warehouseToDelete) return;
+    if (!warehouseToDelete || !accessToken) return;
     
-    setIsDeleting(true);
-    // This would be a DELETE API call to /warehouses/{id}
-    await new Promise(res => setTimeout(res, 500));
-    toast({ title: "Warehouse Deleted (Simulated)", description: `Simulated deletion of ${warehouseToDelete.name}.` });
-    setWarehouseToDelete(null);
-    setIsDeleting(false);
-    fetchWarehouses();
+    setIsMutating(true);
+    try {
+        const response = await fetch(`${API_BASE_URL}/warehouses/${warehouseToDelete.id}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${accessToken}` },
+        });
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({message: "Failed to delete warehouse."}));
+            throw new Error(errorData.message);
+        }
+        toast({ title: "Warehouse Deleted", description: `${warehouseToDelete.name} was successfully deleted.` });
+        fetchWarehouses();
+    } catch (err: any) {
+        toast({ variant: "destructive", title: "Error Deleting Warehouse", description: err.message });
+    } finally {
+        setWarehouseToDelete(null);
+        setIsMutating(false);
+    }
   };
 
-  // UI handlers
-  const handleOpenEditModal = (warehouse: SellerWarehouse) => {
+  const handleOpenAddModal = () => {
+    setModalMode('add');
+    setSelectedWarehouseToEdit(null);
+    setIsModalOpen(true);
+  };
+  
+  const handleOpenEditModal = (warehouse: ApiWarehouse) => {
+    setModalMode('edit');
     setSelectedWarehouseToEdit(warehouse);
-    setIsEditModalOpen(true);
+    setIsModalOpen(true);
   };
 
-  const handleDeleteWarehouse = (warehouse: SellerWarehouse) => {
-    setWarehouseToDelete(warehouse);
-  };
+  const initialFormValues = modalMode === 'edit' && selectedWarehouseToEdit ? {
+    name: selectedWarehouseToEdit.name,
+    addressId: selectedWarehouseToEdit.address.id,
+    is_active: selectedWarehouseToEdit.isActive
+  } : undefined;
 
   return (
     <>
@@ -167,31 +197,28 @@ export default function SellerWarehousesPage() {
               <CardTitle className="font-headline">Your Warehouse Locations</CardTitle>
               <CardDescription>Add, edit, or remove your warehouse locations for inventory and shipping.</CardDescription>
             </div>
-            <Button onClick={() => setIsAddModalOpen(true)} className="bg-accent text-accent-foreground hover:bg-accent/90">
+            <Button onClick={handleOpenAddModal} className="bg-accent text-accent-foreground hover:bg-accent/90" disabled={isLoadingAddresses}>
               <PlusCircle className="mr-2 h-4 w-4" /> Add New Warehouse
             </Button>
           </CardHeader>
           <CardContent>
-            {isLoading && (
+            {isLoadingWarehouses ? (
               <div className="flex justify-center items-center py-8">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 <p className="ml-2 text-muted-foreground">Loading warehouses...</p>
               </div>
-            )}
-            {!isLoading && error && (
+            ) : error ? (
               <p className="text-destructive text-center py-8">{error}</p>
-            )}
-            {!isLoading && !error && warehouses.length === 0 && (
+            ) : warehouses.length === 0 ? (
                <div className="text-center py-8">
                 <Warehouse className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
                 <p className="text-xl font-semibold text-muted-foreground mb-2">No warehouses found.</p>
                 <p className="text-sm text-muted-foreground mb-4">
                   You haven't added any warehouses yet.
                 </p>
-                <Button variant="default" onClick={() => setIsAddModalOpen(true)} className="bg-accent text-accent-foreground hover:bg-accent/90">Add your first warehouse!</Button>
+                <Button variant="default" onClick={handleOpenAddModal} className="bg-accent text-accent-foreground hover:bg-accent/90">Add your first warehouse!</Button>
               </div>
-            )}
-            {!isLoading && !error && warehouses.length > 0 && (
+            ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -206,18 +233,18 @@ export default function SellerWarehousesPage() {
                   {warehouses.map((warehouse) => (
                     <TableRow key={warehouse.id}>
                       <TableCell className="font-medium">{warehouse.name}</TableCell>
-                      <TableCell>{warehouse.city}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground max-w-xs truncate" title={`${warehouse.street_address_1}, ${warehouse.postal_code}`}>{warehouse.street_address_1}, {warehouse.postal_code}</TableCell>
+                      <TableCell>{warehouse.address.city}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground max-w-xs truncate" title={`${warehouse.address.streetAddress1}, ${warehouse.address.postalCode}`}>{warehouse.address.streetAddress1}, {warehouse.address.postalCode}</TableCell>
                       <TableCell>
-                        <Badge variant={warehouse.is_active ? "default" : "secondary"} className={warehouse.is_active ? 'bg-green-500 hover:bg-green-600' : ''}>
-                          {warehouse.is_active ? "Active" : "Inactive"}
+                        <Badge variant={warehouse.isActive ? "default" : "secondary"} className={warehouse.isActive ? 'bg-green-500 hover:bg-green-600' : ''}>
+                          {warehouse.isActive ? "Active" : "Inactive"}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right space-x-2">
-                        <Button variant="outline" size="sm" onClick={() => handleOpenEditModal(warehouse)} disabled={isDeleting}>
+                        <Button variant="outline" size="sm" onClick={() => handleOpenEditModal(warehouse)} disabled={isMutating}>
                           <Edit3 className="mr-1 h-3 w-3" /> Edit
                         </Button>
-                        <Button variant="destructive" size="sm" onClick={() => handleDeleteWarehouse(warehouse)} disabled={isDeleting}>
+                        <Button variant="destructive" size="sm" onClick={() => setWarehouseToDelete(warehouse)} disabled={isMutating}>
                           <Trash2 className="mr-1 h-3 w-3" /> Delete
                         </Button>
                       </TableCell>
@@ -230,45 +257,25 @@ export default function SellerWarehousesPage() {
         </Card>
       </main>
 
-      <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
-        <DialogContent className="sm:max-w-2xl">
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle className="font-headline flex items-center"><Warehouse className="mr-2 h-5 w-5 text-primary" />Add New Warehouse</DialogTitle>
+            <DialogTitle className="font-headline flex items-center"><Warehouse className="mr-2 h-5 w-5 text-primary" />{modalMode === 'add' ? 'Add New Warehouse' : `Edit Warehouse: ${selectedWarehouseToEdit?.name}`}</DialogTitle>
             <DialogDescription>
-              Enter the details for your new warehouse location.
+              {modalMode === 'add' ? 'Enter the details for your new warehouse location.' : 'Update the details for this warehouse location.'}
             </DialogDescription>
           </DialogHeader>
           <WarehouseForm 
-            onSubmit={handleAddSuccess} 
-            onCancel={() => setIsAddModalOpen(false)}
+            initialData={initialFormValues}
+            addresses={sellerAddresses}
+            onSubmit={handleFormSubmit} 
+            onCancel={() => setIsModalOpen(false)}
+            isSubmitting={isMutating}
+            isLoadingAddresses={isLoadingAddresses}
           />
         </DialogContent>
       </Dialog>
-
-      <Dialog open={isEditModalOpen} onOpenChange={(isOpen) => {
-          setIsEditModalOpen(isOpen);
-          if (!isOpen) setSelectedWarehouseToEdit(null);
-      }}>
-        <DialogContent className="sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="font-headline flex items-center"><Warehouse className="mr-2 h-5 w-5 text-primary" />Edit Warehouse: {selectedWarehouseToEdit?.name}</DialogTitle>
-            <DialogDescription>
-              Update the details for this warehouse location.
-            </DialogDescription>
-          </DialogHeader>
-          {selectedWarehouseToEdit && (
-            <WarehouseForm 
-              initialData={selectedWarehouseToEdit} 
-              onSubmit={handleEditSuccess}
-              onCancel={() => {
-                  setIsEditModalOpen(false);
-                  setSelectedWarehouseToEdit(null);
-              }}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
-
+      
       {warehouseToDelete && (
         <AlertDialog open={!!warehouseToDelete} onOpenChange={() => setWarehouseToDelete(null)}>
           <AlertDialogContent>
@@ -276,13 +283,12 @@ export default function SellerWarehousesPage() {
               <AlertDialogTitle>Are you sure you want to delete &quot;{warehouseToDelete.name}&quot;?</AlertDialogTitle>
               <AlertDialogDescription>
                 This action cannot be undone. This will permanently delete the warehouse.
-                This might affect products linked to this warehouse if inventory is managed here.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => setWarehouseToDelete(null)} disabled={isDeleting}>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={confirmDeleteWarehouse} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={isDeleting}>
-                 {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              <AlertDialogCancel onClick={() => setWarehouseToDelete(null)} disabled={isMutating}>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmDeleteWarehouse} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={isMutating}>
+                 {isMutating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                 Yes, Delete Warehouse
               </AlertDialogAction>
             </AlertDialogFooter>
