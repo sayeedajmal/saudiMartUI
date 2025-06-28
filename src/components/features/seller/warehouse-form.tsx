@@ -84,7 +84,10 @@ export function WarehouseForm({ initialData, addresses, onSubmit, onCancel, isSu
                   {addresses.length > 0 ? (
                     addresses.map((address) => (
                       <SelectItem key={address.id} value={address.id}>
-                        {address.companyName ? `${address.companyName} - ` : ''}{address.streetAddress1}, {address.city}, {address.state}
+                        <span className="font-semibold capitalize">{address.addressType.toLowerCase()}:</span>
+                        <span className="text-muted-foreground ml-2">
+                            {address.companyName ? `${address.companyName} - ` : ''}{address.streetAddress1}, {address.city}
+                        </span>
                       </SelectItem>
                     ))
                   ) : (
