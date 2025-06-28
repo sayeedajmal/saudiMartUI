@@ -36,7 +36,7 @@ import { useEffect, useState } from "react";
 import { Loader2, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useDispatch } from 'react-redux';
-import { setLoading, signupSuccess, authError, type SignupResponseData, type MyProfile } from '@/lib/redux/slices/userSlice';
+import { setLoading, signupSuccess, authError, type SignupResponseData } from '@/lib/redux/slices/userSlice';
 import Image from "next/image";
 import HeroSectionImg from "../../../assets/HeroSectionImage.png"
 import { API_BASE_URL } from '@/lib/api';
@@ -45,7 +45,7 @@ import { API_BASE_URL } from '@/lib/api';
 const signupSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   email: z.string().email({ message: "Invalid email address." }),
-  phone_number: z.string().min(10, { message: "Phone number must be at least 10 characters." }).max(20, { message: "Phone number seems too long."}),
+  phone_number: z.string().min(10, { message: "Phone number must be at least 10 characters." }).max(20, { message: "Phone number seems too long." }),
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
   confirmPassword: z.string().min(6, { message: "Password must be at least 6 characters." }),
   role: z.enum(["buyer", "seller"], { required_error: "Please select a role." }),
@@ -55,61 +55,6 @@ const signupSchema = z.object({
 });
 
 type SignupFormValues = z.infer<typeof signupSchema>;
-
-// This function attempts to parse the non-standard success response from the API.
-function parseAuthDataFromString(dataString: string): SignupResponseData | null {
-    try {
-        const accessTokenMatch = dataString.match(/accessToken=([^,]+)/);
-        const refreshTokenMatch = dataString.match(/refreshToken=([^}]+)/);
-        const profileStringMatch = dataString.match(/myProfile=Users\(([^)]+)\)/);
-
-        if (!accessTokenMatch || !refreshTokenMatch || !profileStringMatch) {
-            console.error("Could not find all required fields in auth string");
-            return null;
-        }
-
-        const accessToken = accessTokenMatch[1];
-        const refreshToken = refreshTokenMatch[1];
-        const profileContent = profileStringMatch[1];
-
-        const profileData: { [key: string]: string | null } = {};
-        const profilePairs = profileContent.split(/, (?=\w+=)/);
-        profilePairs.forEach(pair => {
-            const eqIndex = pair.indexOf('=');
-            if (eqIndex > -1) {
-                const key = pair.substring(0, eqIndex);
-                const value = pair.substring(eqIndex + 1);
-                profileData[key] = value === 'null' ? null : value;
-            }
-        });
-
-        if (!profileData.id || !profileData.email) {
-            console.error("Parsed profile data is missing essential fields (id, email)");
-            return null;
-        }
-
-        const myProfile: MyProfile = {
-            id: profileData.id,
-            name: profileData.name || '',
-            email: profileData.email,
-            phoneNumber: profileData.phoneNumber || null,
-            role: profileData.role || 'BUYER',
-            isVerified: profileData.isVerified === 'true',
-            createdAt: profileData.createdAt || '',
-            enabled: profileData.enabled === 'true',
-            accountNonExpired: profileData.accountNonExpired === 'true',
-            accountNonLocked: profileData.accountNonLocked === 'true',
-            credentialsNonExpired: profileData.credentialsNonExpired === 'true',
-            username: profileData.username || profileData.email,
-        };
-
-        return { myProfile, accessToken, refreshToken };
-    } catch (e) {
-        console.error("Failed to parse custom auth data string:", e);
-        return null;
-    }
-}
-
 
 export default function SignupPage() {
   const searchParams = useSearchParams();
@@ -149,7 +94,7 @@ export default function SignupPage() {
         email: values.email,
         phone_number: values.phone_number,
         password: values.password,
-        role: values.role.toUpperCase(), 
+        role: values.role.toUpperCase(),
       };
 
       const response = await fetch(`${API_BASE_URL}/authen/signup`, {
@@ -160,48 +105,31 @@ export default function SignupPage() {
         body: JSON.stringify(apiRequestBody),
       });
 
+      const responseData = await response.json();
+      console.log("Data: ",responseData)
       if (!response.ok) {
-        let errorMessage = `Signup failed with status: ${response.status}`;
-        try {
-            const errorData = await response.json();
-            errorMessage = errorData.message || JSON.stringify(errorData);
-        } catch (e) {
-            const textError = await response.text();
-            if(textError) errorMessage = `Server returned an error: ${textError.substring(0, 200)}...`;
-        }
+        const errorMessage = responseData.message || `Signup failed with status: ${response.status}`;
         throw new Error(errorMessage);
       }
 
-      const responseData = await response.json();
-      let signupData: SignupResponseData | null = null;
-      
-      // Check if the 'data' field is a valid object or the special string format
-      if (responseData.data && typeof responseData.data === 'object') {
-        signupData = responseData.data;
-      } else if (responseData.data && typeof responseData.data === 'string') {
-        signupData = parseAuthDataFromString(responseData.data);
-      }
-      
-      if (signupData && signupData.myProfile) {
-        dispatch(signupSuccess(signupData));
-        
-        toast({
-          title: "Signup Successful!",
-          description: "You have successfully created an account.",
-        });
+      const signupData: SignupResponseData = responseData.data;
+      dispatch(signupSuccess(signupData));
 
-        if (signupData.myProfile.role === 'SELLER') {
-          router.push('/auth/setup-account');
-        } else if (signupData.myProfile.role === 'BUYER') {
-          router.push('/buyer/dashboard');
-        } else {
-          router.push('/'); 
-        }
+      toast({
+        title: "Signup Successful!",
+        description: responseData.message || "You have successfully created an account.",
+      });
+
+      if (signupData.myProfile.role === 'SELLER') {
+        router.push('/auth/setup-account');
+      } else if (signupData.myProfile.role === 'BUYER') {
+        router.push('/buyer/dashboard');
       } else {
-        throw new Error("Failed to parse successful authentication response from server.");
+        router.push('/');
       }
 
     } catch (error: any) {
+      console.error("Error during signup:", error);
       dispatch(authError(error.message || "An unexpected error occurred."));
       toast({
         variant: "destructive",
@@ -210,14 +138,14 @@ export default function SignupPage() {
       });
     }
   };
-  
-  const isLoading = form.formState.isSubmitting; 
+
+  const isLoading = form.formState.isSubmitting;
 
   return (
     <div className="container mx-auto flex items-center p-10 justify-center">
       <div className="w-full ">
         <div className="flex flex-col md:flex-row gap-8 items-stretch">
-           {/* Left Column: Banner */}
+          {/* Left Column: Banner */}
           <div className="w-[80vw] flex flex-col justify-center order-1 md:order-none">
             <div className="aspect-video relative rounded-lg overflow-hidden shadow-lg">
               <Image
@@ -312,7 +240,7 @@ export default function SignupPage() {
                                 placeholder="••••••••"
                                 autoComplete="new-password"
                                 {...field}
-                                className="pr-10" 
+                                className="pr-10"
                               />
                             </FormControl>
                             <Button
