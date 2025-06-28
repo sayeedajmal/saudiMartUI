@@ -121,7 +121,10 @@ export default function SellerWarehousesPage() {
       name: values.name,
       isActive: values.is_active,
       seller: { id: currentUser.id },
-      address: { id: values.addressId }
+      address: { 
+        id: values.addressId,
+        user: { id: currentUser.id }
+      }
     };
 
     try {

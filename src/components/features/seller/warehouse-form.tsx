@@ -84,7 +84,7 @@ export function WarehouseForm({ initialData, addresses, onSubmit, onCancel, isSu
                   {addresses.length > 0 ? (
                     addresses.map((address) => (
                       <SelectItem key={address.id} value={address.id}>
-                        {address.streetAddress1}, {address.city}
+                        {address.companyName ? `${address.companyName} - ` : ''}{address.streetAddress1}, {address.city}, {address.state}
                       </SelectItem>
                     ))
                   ) : (
