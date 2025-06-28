@@ -22,12 +22,12 @@ import { Separator } from '@/components/ui/separator';
 
 const addressFormSchema = z.object({
   addressType: z.enum(['SHIPPING', 'BILLING', 'WAREHOUSE']),
-  company_name: z.string().max(100).optional().nullable(),
-  street_address_1: z.string().min(3, "Street address is required.").max(255),
-  street_address_2: z.string().max(255).optional().nullable(),
+  companyName: z.string().max(100).optional().nullable(),
+  streetAddress1: z.string().min(3, "Street address is required.").max(255),
+  streetAddress2: z.string().max(255).optional().nullable(),
   city: z.string().min(2, "City is required.").max(100),
   state: z.string().min(2, "State/Province is required.").max(100),
-  postal_code: z.string().min(3, "Postal code is required.").max(20),
+  postalCode: z.string().min(3, "Postal code is required.").max(20),
   country: z.string().min(2, "Country is required.").max(100),
   isDefault: z.boolean().default(false),
 });
@@ -46,14 +46,14 @@ export function AddressForm({ initialData, onSubmit, onCancel, isSubmitting }: A
     resolver: zodResolver(addressFormSchema),
     defaultValues: {
       addressType: initialData?.addressType || 'SHIPPING',
-      company_name: initialData?.company_name || "",
-      street_address_1: initialData?.street_address_1 || "",
-      street_address_2: initialData?.street_address_2 || "",
+      companyName: initialData?.companyName || "",
+      streetAddress1: initialData?.streetAddress1 || "",
+      streetAddress2: initialData?.streetAddress2 || "",
       city: initialData?.city || "",
       state: initialData?.state || "",
-      postal_code: initialData?.postal_code || "",
+      postalCode: initialData?.postalCode || "",
       country: initialData?.country || "Saudi Arabia",
-      isDefault: initialData?.isDefault || false, // Ensure isDefault is always a boolean
+      isDefault: initialData?.isDefault || false,
     },
   });
 
@@ -89,7 +89,7 @@ export function AddressForm({ initialData, onSubmit, onCancel, isSubmitting }: A
           />
           <FormField
             control={form.control}
-            name="company_name"
+            name="companyName"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Company Name (Optional)</FormLabel>
@@ -106,7 +106,7 @@ export function AddressForm({ initialData, onSubmit, onCancel, isSubmitting }: A
         
         <FormField
           control={form.control}
-          name="street_address_1"
+          name="streetAddress1"
           render={({ field }) => (
             <FormItem>
               <FormLabel>Street Address 1</FormLabel>
@@ -119,7 +119,7 @@ export function AddressForm({ initialData, onSubmit, onCancel, isSubmitting }: A
         />
         <FormField
           control={form.control}
-          name="street_address_2"
+          name="streetAddress2"
           render={({ field }) => (
             <FormItem>
               <FormLabel>Street Address 2 (Optional)</FormLabel>
@@ -155,7 +155,7 @@ export function AddressForm({ initialData, onSubmit, onCancel, isSubmitting }: A
           />
           <FormField
             control={form.control}
-            name="postal_code"
+            name="postalCode"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Postal Code</FormLabel>

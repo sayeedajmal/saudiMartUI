@@ -250,7 +250,7 @@ export default function SellerAddressesPage() {
           {selectedAddressToEdit && (
             <AddressForm
               isSubmitting={isMutating}
-              initialData={{ ...selectedAddressToEdit, company_name: selectedAddressToEdit.companyName, street_address_1: selectedAddressToEdit.streetAddress1, street_address_2: selectedAddressToEdit.streetAddress2, postal_code: selectedAddressToEdit.postalCode, is_default: selectedAddressToEdit.isDefault, addressType: selectedAddressToEdit.addressType }}
+              initialData={selectedAddressToEdit}
               onSubmit={handleEditSubmit}
               onCancel={() => setIsEditModalOpen(false)}
             />
