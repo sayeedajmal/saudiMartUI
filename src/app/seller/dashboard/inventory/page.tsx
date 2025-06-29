@@ -29,11 +29,11 @@ interface ApiInventoryItem {
   product: {
     id: string;
     name: string;
-    images: { imageUrl: string; isPrimary: boolean; }[];
   };
-  variant?: {
+  variant: {
     id: string;
     variantName: string;
+    images: { imageUrl: string; isPrimary: boolean; }[];
   };
   warehouse: {
     id: string;
@@ -41,8 +41,8 @@ interface ApiInventoryItem {
   };
   quantity: number;
   reservedQuantity: number;
-  reorderLevel: number;
-  lastUpdated: string;
+  createdAt: string;
+  updatedAt: string | null;
 }
 
 interface InventoryItem {
@@ -56,14 +56,12 @@ interface InventoryItem {
   warehouse_name: string;
   quantity: number;
   reserved_quantity: number;
-  reorder_level: number;
   last_updated: string;
 }
 
 const updateQuantitiesSchema = z.object({
   quantity: z.coerce.number().min(0, "Quantity cannot be negative."),
   reservedQuantity: z.coerce.number().min(0, "Reserved quantity cannot be negative."),
-  reorderLevel: z.coerce.number().min(0, "Reorder level cannot be negative."),
 });
 type UpdateQuantitiesFormValues = z.infer<typeof updateQuantitiesSchema>;
 
@@ -71,7 +69,7 @@ export default function SellerInventoryManagementPage() {
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [products, setProducts] = useState<SellerProduct[]>([]);
   const [warehouses, setWarehouses] = useState<ApiWarehouse[]>([]);
-  
+
   const [isLoading, setIsLoading] = useState(false);
   const [isMutating, setIsMutating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -80,14 +78,14 @@ export default function SellerInventoryManagementPage() {
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
   const [selectedItemToUpdate, setSelectedItemToUpdate] = useState<InventoryItem | null>(null);
   const [itemToDelete, setItemToDelete] = useState<InventoryItem | null>(null);
-  
+
   const accessToken = useSelector(selectAccessToken);
   const currentUser = useSelector(selectUser) as MyProfile | null;
   const { toast } = useToast();
 
   const form = useForm<UpdateQuantitiesFormValues>({
     resolver: zodResolver(updateQuantitiesSchema),
-    defaultValues: { quantity: 0, reservedQuantity: 0, reorderLevel: 0 },
+    defaultValues: { quantity: 0, reservedQuantity: 0 },
   });
 
   const fetchDependencies = useCallback(async () => {
@@ -110,10 +108,10 @@ export default function SellerInventoryManagementPage() {
         }
         throw new Error(errorMsg);
       }
-      
+
       const apiInventory: ApiInventoryItem[] = inventoryData.data || [];
       const flattenedInventory: InventoryItem[] = apiInventory.map(item => {
-        const primaryImage = item.product?.images?.find(img => img.isPrimary) || item.product?.images?.[0];
+        const primaryImage = item.variant?.images?.find(img => img.isPrimary) || item.variant?.images?.[0];
         return {
           inventory_id: String(item.id),
           product_id: String(item.product.id),
@@ -125,18 +123,17 @@ export default function SellerInventoryManagementPage() {
           warehouse_name: item.warehouse.name,
           quantity: item.quantity,
           reserved_quantity: item.reservedQuantity,
-          reorder_level: item.reorderLevel,
-          last_updated: new Date(item.lastUpdated).toLocaleDateString(),
+          last_updated: new Date(item.updatedAt || item.createdAt).toLocaleDateString(),
         }
       });
       setInventoryItems(flattenedInventory);
 
-      // Handle Products
+      // Handle Products (for form dropdown)
       const productsData = await productsRes.json();
       if (!productsRes.ok) throw new Error(productsData.message || 'Failed to fetch products');
       setProducts(productsData.data || []);
 
-      // Handle Warehouses
+      // Handle Warehouses (for form dropdown)
       const warehousesData = await warehousesRes.json();
       if (!warehousesRes.ok) throw new Error(warehousesData.message || 'Failed to fetch warehouses');
       setWarehouses(warehousesData.data || []);
@@ -158,11 +155,10 @@ export default function SellerInventoryManagementPage() {
     form.reset({
       quantity: item.quantity,
       reservedQuantity: item.reserved_quantity,
-      reorderLevel: item.reorder_level,
     });
     setIsUpdateModalOpen(true);
   };
-  
+
   const handleUpdateQuantitiesSubmit = async (values: UpdateQuantitiesFormValues) => {
     if (!selectedItemToUpdate || !accessToken) return;
     setIsMutating(true);
@@ -179,7 +175,7 @@ export default function SellerInventoryManagementPage() {
       toast({ title: "Stock Updated!", description: `Stock for ${selectedItemToUpdate.product_name} has been updated.` });
       setIsUpdateModalOpen(false);
       fetchDependencies();
-    } catch(err: any) {
+    } catch (err: any) {
       toast({ variant: "destructive", title: "Update Failed", description: err.message });
     } finally {
       setIsMutating(false);
@@ -208,32 +204,32 @@ export default function SellerInventoryManagementPage() {
       toast({ title: "Inventory Created!", description: "New stock record has been added." });
       setIsAddModalOpen(false);
       fetchDependencies();
-    } catch(err: any) {
+    } catch (err: any) {
       toast({ variant: "destructive", title: "Creation Failed", description: err.message });
     } finally {
       setIsMutating(false);
     }
   };
-  
+
   const confirmDelete = async () => {
     if (!itemToDelete || !accessToken) return;
     setIsMutating(true);
     try {
-        const response = await fetch(`${API_BASE_URL}/inventory/${itemToDelete.inventory_id}`, {
-            method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${accessToken}` }
-        });
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ message: "Failed to delete item."}));
-            throw new Error(errorData.message);
-        }
-        toast({ title: "Inventory Deleted", description: "The stock record was successfully deleted." });
-        fetchDependencies();
+      const response = await fetch(`${API_BASE_URL}/inventory/${itemToDelete.inventory_id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${accessToken}` }
+      });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: "Failed to delete item." }));
+        throw new Error(errorData.message);
+      }
+      toast({ title: "Inventory Deleted", description: "The stock record was successfully deleted." });
+      fetchDependencies();
     } catch (err: any) {
-        toast({ variant: "destructive", title: "Error Deleting Item", description: err.message });
+      toast({ variant: "destructive", title: "Error Deleting Item", description: err.message });
     } finally {
-        setItemToDelete(null);
-        setIsMutating(false);
+      setItemToDelete(null);
+      setIsMutating(false);
     }
   };
 
@@ -262,26 +258,26 @@ export default function SellerInventoryManagementPage() {
             ) : error ? (
               <p className="text-destructive text-center py-8">{error}</p>
             ) : inventoryItems.length === 0 ? (
-               <div className="text-center py-8"><Boxes className="mx-auto h-12 w-12 text-muted-foreground mb-4" /><p className="text-xl font-semibold text-muted-foreground mb-2">No inventory records found.</p><p className="text-sm text-muted-foreground mb-4">Add products and warehouses, then manage their stock here.</p></div>
+              <div className="text-center py-8"><Boxes className="mx-auto h-12 w-12 text-muted-foreground mb-4" /><p className="text-xl font-semibold text-muted-foreground mb-2">No inventory records found.</p><p className="text-sm text-muted-foreground mb-4">Add products and warehouses, then manage their stock here.</p></div>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Image</TableHead>
                     <TableHead>Product</TableHead><TableHead>Variant</TableHead><TableHead>Warehouse</TableHead>
-                    <TableHead className="text-right">Quantity</TableHead><TableHead className="text-right">Reserved</TableHead><TableHead className="text-right">Reorder Level</TableHead>
+                    <TableHead className="text-right">Quantity</TableHead><TableHead className="text-right">Reserved</TableHead>
                     <TableHead>Last Updated</TableHead><TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {inventoryItems.map((item) => (
                     <TableRow key={item.inventory_id}>
-                       <TableCell>
+                      <TableCell>
                         <a href={item.product_image_url || '#'} target="_blank" rel="noopener noreferrer" onClick={(e) => !item.product_image_url && e.preventDefault()}>
                           <Avatar className="h-12 w-12 rounded-md">
                             <AvatarImage src={item.product_image_url} alt={item.product_name} className="object-cover" />
                             <AvatarFallback className="rounded-md bg-muted">
-                              <Boxes className="h-6 w-6 text-muted-foreground"/>
+                              <Boxes className="h-6 w-6 text-muted-foreground" />
                             </AvatarFallback>
                           </Avatar>
                         </a>
@@ -289,7 +285,7 @@ export default function SellerInventoryManagementPage() {
                       <TableCell className="font-medium max-w-[200px] truncate" title={item.product_name}>{item.product_name}</TableCell>
                       <TableCell className="max-w-[150px] truncate" title={item.variant_name}>{item.variant_name || 'N/A'}</TableCell>
                       <TableCell className="max-w-[150px] truncate" title={item.warehouse_name}>{item.warehouse_name}</TableCell>
-                      <TableCell className="text-right">{item.quantity}</TableCell><TableCell className="text-right">{item.reserved_quantity}</TableCell><TableCell className="text-right">{item.reorder_level}</TableCell>
+                      <TableCell className="text-right">{item.quantity}</TableCell><TableCell className="text-right">{item.reserved_quantity}</TableCell>
                       <TableCell>{item.last_updated}</TableCell>
                       <TableCell className="text-right space-x-2">
                         <Button variant="outline" size="sm" onClick={() => handleOpenUpdateModal(item)} disabled={isMutating}><Edit className="mr-1 h-3 w-3" /> Update</Button>
@@ -315,7 +311,6 @@ export default function SellerInventoryManagementPage() {
               <form onSubmit={form.handleSubmit(handleUpdateQuantitiesSubmit)} className="space-y-4 py-2">
                 <FormField control={form.control} name="quantity" render={({ field }) => (<FormItem><FormLabel>Available Quantity</FormLabel><FormControl><Input type="number" placeholder="0" {...field} /></FormControl><FormMessage /></FormItem>)} />
                 <FormField control={form.control} name="reservedQuantity" render={({ field }) => (<FormItem><FormLabel>Reserved Quantity</FormLabel><FormControl><Input type="number" placeholder="0" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                <FormField control={form.control} name="reorderLevel" render={({ field }) => (<FormItem><FormLabel>Reorder Level</FormLabel><FormControl><Input type="number" placeholder="0" {...field} /></FormControl><FormMessage /></FormItem>)} />
                 <DialogFooter className="pt-4">
                   <Button type="button" variant="outline" onClick={() => setIsUpdateModalOpen(false)} disabled={isMutating}>Cancel</Button>
                   <Button type="submit" className="bg-accent text-accent-foreground hover:bg-accent/90" disabled={isMutating}>{isMutating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save Changes</Button>
@@ -325,10 +320,10 @@ export default function SellerInventoryManagementPage() {
           )}
         </DialogContent>
       </Dialog>
-      
+
       <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
         <DialogContent className="sm:max-w-xl">
-          <DialogHeader><DialogTitle className="font-headline flex items-center"><Boxes className="mr-2 h-5 w-5 text-primary"/>Add New Inventory Record</DialogTitle><DialogDescription>Select a product, variant, and warehouse to add a new stock record.</DialogDescription></DialogHeader>
+          <DialogHeader><DialogTitle className="font-headline flex items-center"><Boxes className="mr-2 h-5 w-5 text-primary" />Add New Inventory Record</DialogTitle><DialogDescription>Select a product, variant, and warehouse to add a new stock record.</DialogDescription></DialogHeader>
           <InventoryForm onSubmit={handleAddInventorySubmit} onCancel={() => setIsAddModalOpen(false)} isSubmitting={isMutating} products={products} warehouses={warehouses} isLoadingDependencies={isLoading} />
         </DialogContent>
       </Dialog>
@@ -344,3 +339,5 @@ export default function SellerInventoryManagementPage() {
     </>
   );
 }
+
+    
