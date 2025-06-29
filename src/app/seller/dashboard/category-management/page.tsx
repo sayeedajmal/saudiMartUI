@@ -190,8 +190,8 @@ export default function SellerCategoryManagementPage() {
           </CardHeader>
           <CardContent>
             <div className="mb-6 p-4 border rounded-lg bg-muted/50 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-                <div className="md:col-span-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-12 gap-4 items-end">
+                <div className="sm:col-span-2 md:col-span-6">
                   <label htmlFor="search-category" className="block text-sm font-medium text-foreground mb-1">Search by Name</label>
                   <div className="relative">
                     <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -205,7 +205,7 @@ export default function SellerCategoryManagementPage() {
                     />
                   </div>
                 </div>
-                <div className="md:col-span-1">
+                <div className="md:col-span-3">
                   <label htmlFor="status-filter" className="block text-sm font-medium text-foreground mb-1">Filter by Status</label>
                   <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as 'all' | 'active' | 'inactive')}>
                     <SelectTrigger id="status-filter">
@@ -218,11 +218,11 @@ export default function SellerCategoryManagementPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="flex gap-2 items-end md:col-span-1">
-                  <Button onClick={handleFilterApply} disabled={isLoading} className="w-full">
-                    <FilterIcon className="mr-2 h-4 w-4" /> Apply Filters
+                <div className="md:col-span-3 flex gap-2">
+                  <Button onClick={handleFilterApply} disabled={isLoading} className="flex-1">
+                    <FilterIcon className="mr-2 h-4 w-4" /> Apply
                   </Button>
-                  <Button onClick={handleClearFilters} variant="outline" disabled={isLoading} className="w-full">
+                  <Button onClick={handleClearFilters} variant="outline" disabled={isLoading}>
                     <XCircle className="mr-2 h-4 w-4" /> Clear
                   </Button>
                 </div>
