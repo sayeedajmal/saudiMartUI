@@ -180,7 +180,7 @@ export default function SellerCategoryManagementPage() {
               <CardDescription>Manage categories for your products. (Note: Currently displays all system categories)</CardDescription>
             </div>
             <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
-              <Button onClick={() => fetchSellerCategories(searchTerm, statusFilter)} variant="outline" disabled={isLoading || isDeleting} className="w-full sm:w-auto">
+              <Button onClick={() => fetchSellerCategories(searchTerm, statusFilter)} variant="outline" disabled={isLoading || isDeleting} className="bg-accent text-accent-foreground hover:bg-accent/90 w-full sm:w-auto">
                 <RefreshCw className={`mr-2 h-4 w-4 ${isLoading && !isDeleting && !categoryToDelete ? 'animate-spin' : ''}`} /> Refresh
               </Button>
               <Button onClick={() => setIsCreateModalOpen(true)} className="bg-accent text-accent-foreground hover:bg-accent/90 w-full sm:w-auto" disabled={isLoading || isDeleting}>
@@ -220,10 +220,10 @@ export default function SellerCategoryManagementPage() {
                 </div>
                 <div className="md:col-span-3 flex gap-2">
                   <Button onClick={handleFilterApply} disabled={isLoading} className="flex-1">
-                    <FilterIcon className="mr-2 h-4 w-4" /> Apply
+                    <FilterIcon className="mr-2 h-4 w-2" /> Apply
                   </Button>
                   <Button onClick={handleClearFilters} variant="outline" disabled={isLoading}>
-                    <XCircle className="mr-2 h-4 w-4" /> Clear
+                    <XCircle className="mr-2 h-4 w-2" /> Clear
                   </Button>
                 </div>
               </div>

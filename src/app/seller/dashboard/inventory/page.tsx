@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -97,7 +96,6 @@ export default function SellerInventoryManagementPage() {
     setIsLoading(true);
     setError(null);
     try {
-      // For the inventory list, we only need the single, rich API call.
       const inventoryRes = await fetch(`${API_BASE_URL}/inventory/sellerinventory/${currentUser.id}`, { headers: { 'Authorization': `Bearer ${accessToken}` } });
       const inventoryData = await inventoryRes.json();
       if (!inventoryRes.ok) {
@@ -252,7 +250,7 @@ export default function SellerInventoryManagementPage() {
               <CardDescription>View and manage stock quantities for your products across warehouses.</CardDescription>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" onClick={fetchDependencies} disabled={isLoading}>
+              <Button variant="outline" onClick={fetchDependencies} disabled={isLoading} className='bg-accent text-accent-foreground hover:bg-accent/90'>
                 <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
                 Refresh
               </Button>
