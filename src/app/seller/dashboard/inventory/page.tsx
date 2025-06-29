@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { Edit, PlusCircle, Loader2, Boxes, Trash2 } from "lucide-react";
+import { Edit, PlusCircle, Loader2, Boxes, Trash2, RefreshCw } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -29,6 +29,10 @@ interface ApiInventoryItem {
   product: {
     id: string;
     name: string;
+    variants: {
+      id: string;
+      images: { imageUrl: string; isPrimary: boolean; }[];
+    }[]
   };
   variant: {
     id: string;
@@ -93,13 +97,8 @@ export default function SellerInventoryManagementPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const [inventoryRes, productsRes, warehousesRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/inventory/sellerinventory/${currentUser.id}`, { headers: { 'Authorization': `Bearer ${accessToken}` } }),
-        fetch(`${API_BASE_URL}/products/seller/${currentUser.id}`, { headers: { 'Authorization': `Bearer ${accessToken}` } }),
-        fetch(`${API_BASE_URL}/warehouses/seller?sellerId=${currentUser.id}`, { headers: { 'Authorization': `Bearer ${accessToken}` } }),
-      ]);
-
-      // Handle Inventory
+      // For the inventory list, we only need the single, rich API call.
+      const inventoryRes = await fetch(`${API_BASE_URL}/inventory/sellerinventory/${currentUser.id}`, { headers: { 'Authorization': `Bearer ${accessToken}` } });
       const inventoryData = await inventoryRes.json();
       if (!inventoryRes.ok) {
         let errorMsg = inventoryData.message || 'Failed to fetch inventory';
@@ -128,14 +127,18 @@ export default function SellerInventoryManagementPage() {
       });
       setInventoryItems(flattenedInventory);
 
-      // Handle Products (for form dropdown)
+      // For the "Add Inventory" form, we still need the full lists of products and warehouses.
+      const [productsRes, warehousesRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/products/seller/${currentUser.id}`, { headers: { 'Authorization': `Bearer ${accessToken}` } }),
+        fetch(`${API_BASE_URL}/warehouses/seller?sellerId=${currentUser.id}`, { headers: { 'Authorization': `Bearer ${accessToken}` } }),
+      ]);
+      
       const productsData = await productsRes.json();
-      if (!productsRes.ok) throw new Error(productsData.message || 'Failed to fetch products');
+      if (!productsRes.ok) throw new Error(productsData.message || 'Failed to fetch products for form');
       setProducts(productsData.data || []);
 
-      // Handle Warehouses (for form dropdown)
       const warehousesData = await warehousesRes.json();
-      if (!warehousesRes.ok) throw new Error(warehousesData.message || 'Failed to fetch warehouses');
+      if (!warehousesRes.ok) throw new Error(warehousesData.message || 'Failed to fetch warehouses for form');
       setWarehouses(warehousesData.data || []);
 
     } catch (err: any) {
@@ -248,9 +251,15 @@ export default function SellerInventoryManagementPage() {
               <CardTitle className="font-headline">Product Stock Levels</CardTitle>
               <CardDescription>View and manage stock quantities for your products across warehouses.</CardDescription>
             </div>
-            <Button onClick={() => setIsAddModalOpen(true)} className="bg-accent text-accent-foreground hover:bg-accent/90" disabled={isLoading || isLoadingDependencies}>
-              <PlusCircle className="mr-2 h-4 w-4" /> Add Inventory
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={fetchDependencies} disabled={isLoading}>
+                <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+              <Button onClick={() => setIsAddModalOpen(true)} className="bg-accent text-accent-foreground hover:bg-accent/90" disabled={isLoading || isLoadingDependencies}>
+                <PlusCircle className="mr-2 h-4 w-4" /> Add Inventory
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             {isLoading && inventoryItems.length === 0 ? (
@@ -339,5 +348,3 @@ export default function SellerInventoryManagementPage() {
     </>
   );
 }
-
-    
