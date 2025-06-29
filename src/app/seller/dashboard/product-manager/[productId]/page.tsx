@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, FormProvider, useFieldArray, useFormContext, Control } from "react-hook-form";
+import { useForm, FormProvider, useFieldArray, useFormContext } from "react-hook-form";
 import { z } from "zod";
 import {
   Form,
@@ -52,6 +52,17 @@ const priceTierSchema = z.object({
   is_active: z.boolean().default(true),
 });
 
+const imageSchema = z.object({
+  id: z.union([z.string(), z.number()]).optional(),
+  image_url: z.string().url({ message: "Please enter a valid URL for the image." }),
+  alt_text: z.string().optional().nullable(),
+  display_order: z.preprocess(
+    (val) => (val === "" ? undefined : val),
+    z.coerce.number({ invalid_type_error: "Display order must be a number" }).int().optional().nullable()
+  ),
+  is_primary: z.boolean().default(false),
+});
+
 const productVariantSchema = z.object({
   id: z.union([z.string(), z.number()]).optional(),
   sku: z.string().min(1, "Variant SKU is required").max(50),
@@ -66,17 +77,6 @@ const productVariantSchema = z.object({
   ),
   available: z.boolean().default(true),
   priceTiers: z.array(priceTierSchema).min(1, "At least one price tier is required for each variant."),
-});
-
-const productImageSchema = z.object({
-  id: z.union([z.string(), z.number()]).optional(),
-  image_url: z.string().url({ message: "Please enter a valid URL for the image." }),
-  alt_text: z.string().optional().nullable(),
-  display_order: z.preprocess(
-    (val) => (val === "" ? undefined : val),
-    z.coerce.number({ invalid_type_error: "Display order must be a number" }).int().optional().nullable()
-  ),
-  is_primary: z.boolean().default(false),
 });
 
 const productSpecificationSchema = z.object({
@@ -101,10 +101,11 @@ const productSchema = z.object({
   dimensions: z.string().min(1, "Dimensions are required").max(50),
   sku: z.string().min(1, "SKU is required").max(50),
   available: z.boolean().default(true),
+  images: z.array(imageSchema).min(1, "At least one image is required."),
   variants: z.array(productVariantSchema).min(1, "At least one product variant is required."),
-  images: z.array(productImageSchema).min(1, "At least one product image is required."),
   specifications: z.array(productSpecificationSchema).min(1, "At least one product specification is required."),
 });
+
 
 type ProductFormValues = z.infer<typeof productSchema>;
 
@@ -138,7 +139,6 @@ const VariantCard = ({ variantIndex, removeVariant }: { variantIndex: number, re
         ))}
         <Button type="button" variant="outline" size="sm" onClick={() => appendTier({ min_quantity: 1, max_quantity: '', price_per_unit: undefined, discount_percent: '', is_active: true })}><PlusCircle className="mr-2 h-4 w-4" /> Add Price Tier</Button>
       </div>
-
       <Separator className="my-4" />
       <div className="flex justify-between items-center mt-2">
         <FormField control={control} name={`variants.${variantIndex}.available`} render={({ field }) => (<FormItem className="flex flex-row items-center space-x-2"><FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="mb-0 font-normal">Variant Available</FormLabel></FormItem>)} />
@@ -176,9 +176,9 @@ export default function ManageProductPage() {
       dimensions: "",
       sku: "",
       available: true,
-      variants: [],
       images: [],
       specifications: [],
+      variants: [],
     },
   });
 
@@ -228,6 +228,13 @@ export default function ManageProductPage() {
         dimensions: productData.dimensions || "",
         sku: productData.sku || "",
         available: productData.available === undefined ? true : productData.available,
+        images: productData.images?.map((img: any) => ({
+            id: img.id,
+            image_url: img.imageUrl || '',
+            alt_text: img.altText || '',
+            display_order: img.displayOrder ?? '',
+            is_primary: img.isPrimary || false,
+        })) || [],
         variants: productData.variants?.map((v: any) => ({
           id: v.id,
           sku: v.sku || '',
@@ -243,13 +250,6 @@ export default function ManageProductPage() {
             discount_percent: t.discountPercent,
             is_active: t.isActive,
           })) || []
-        })) || [],
-        images: productData.images?.map((img: any) => ({
-          id: img.id,
-          image_url: img.imageUrl || '',
-          alt_text: img.altText || '',
-          display_order: img.displayOrder ?? '',
-          is_primary: img.isPrimary || false,
         })) || [],
         specifications: productData.specifications?.map((spec: any) => ({
           id: spec.id,
@@ -280,8 +280,8 @@ export default function ManageProductPage() {
   }, [accessToken, isEditMode, productId, fetchCategories, fetchProductData]);
 
   const { fields: variantFields, append: appendVariant, remove: removeVariant } = useFieldArray({ control: form.control, name: "variants" });
-  const { fields: imageFields, append: appendImage, remove: removeImage } = useFieldArray({ control: form.control, name: "images" });
   const { fields: specFields, append: appendSpec, remove: removeSpec } = useFieldArray({ control: form.control, name: "specifications" });
+  const { fields: imageFields, append: appendImage, remove: removeImage } = useFieldArray({ control: form.control, name: "images" });
 
   const onSubmit = async (values: ProductFormValues) => {
     setIsSubmitting(true);
@@ -304,6 +304,13 @@ export default function ManageProductPage() {
       sku: values.sku,
       available: values.available,
       seller: { id: currentUser.id },
+      images: values.images?.map(img => ({
+        id: img.id,
+        imageUrl: img.image_url,
+        altText: img.alt_text || null,
+        displayOrder: img.display_order,
+        isPrimary: img.is_primary,
+      })),
       variants: values.variants?.map(v => ({
         id: v.id,
         sku: v.sku,
@@ -318,9 +325,8 @@ export default function ManageProductPage() {
           pricePerUnit: t.price_per_unit,
           discountPercent: t.discount_percent,
           isActive: t.is_active,
-        }))
+        })),
       })),
-      images: values.images?.map(img => ({ id: img.id, imageUrl: img.image_url, altText: img.alt_text || null, displayOrder: img.display_order, isPrimary: img.is_primary })),
       specifications: values.specifications?.map(s => ({ id: s.id, specName: s.spec_name, specValue: s.spec_value, unit: s.unit || null, displayOrder: s.display_order })),
     };
 
@@ -426,9 +432,33 @@ export default function ManageProductPage() {
               <Info className="h-5 w-5 text-primary" />
               <AlertTitle className="text-primary font-semibold">Advanced Details</AlertTitle>
               <AlertDescription className="text-primary/80">
-                Manage Product Variants, Images, and Specifications. At least one of each is required.
+                Manage Product Images, Variants, and Specifications. At least one of each is required.
               </AlertDescription>
             </Alert>
+            
+            <Card className="shadow-md">
+                <CardHeader>
+                    <CardTitle className="font-headline flex items-center"><ImagePlus className="mr-2 h-5 w-5 text-primary" />Product Images</CardTitle>
+                    <CardDescription>Add URLs for your product images. The first image will be the primary one.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    {imageFields.map((item, index) => (
+                        <Card key={item.id} className="p-4 border shadow-sm relative">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <FormField control={form.control} name={`images.${index}.image_url`} render={({ field }) => (<FormItem className="md:col-span-2"><FormLabel>Image URL</FormLabel><FormControl><Input placeholder="https://example.com/image.png" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                <FormField control={form.control} name={`images.${index}.alt_text`} render={({ field }) => (<FormItem><FormLabel>Alt Text (Optional)</FormLabel><FormControl><Input placeholder="Descriptive alt text" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                                <FormField control={form.control} name={`images.${index}.display_order`} render={({ field }) => (<FormItem><FormLabel>Display Order</FormLabel><FormControl><Input type="number" placeholder="0" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                            </div>
+                            <div className="flex justify-between items-center mt-3">
+                                <FormField control={form.control} name={`images.${index}.is_primary`} render={({ field }) => (<FormItem className="flex flex-row items-center space-x-2"><FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="mb-0 font-normal">Primary Image</FormLabel></FormItem>)} />
+                                <Button type="button" variant="destructive" size="sm" onClick={() => removeImage(index)}><Trash2 className="mr-1 h-4 w-4" /> Remove Image</Button>
+                            </div>
+                        </Card>
+                    ))}
+                    <Button type="button" variant="outline" onClick={() => appendImage({ image_url: '', alt_text: '', display_order: '', is_primary: imageFields.length === 0 })}><PlusCircle className="mr-2 h-4 w-4" /> Add Image</Button>
+                    <FormMessage>{form.formState.errors.images?.message}</FormMessage>
+                </CardContent>
+            </Card>
 
             <Card className="shadow-md">
               <CardHeader><CardTitle className="font-headline flex items-center"><ListPlus className="mr-2 h-5 w-5 text-primary" />Product Variants</CardTitle><CardDescription>Define different versions of your product (e.g., by size, color). Each variant can have its own SKU, price, and price tiers.</CardDescription></CardHeader>
@@ -436,15 +466,6 @@ export default function ManageProductPage() {
                 {variantFields.map((item, index) => <VariantCard key={item.id} variantIndex={index} removeVariant={removeVariant} />)}
                 <Button type="button" variant="outline" onClick={() => appendVariant({ sku: '', variant_name: '', base_price: '', additional_price: '', available: true, priceTiers: [] })}><PlusCircle className="mr-2 h-4 w-4" /> Add Variant</Button>
                 <FormMessage>{form.formState.errors.variants?.message}</FormMessage>
-              </CardContent>
-            </Card>
-
-            <Card className="shadow-md">
-              <CardHeader><CardTitle className="font-headline flex items-center"><ImagePlus className="mr-2 h-5 w-5 text-primary" />Product Images</CardTitle><CardDescription>Add image URLs for your product. Mark one as primary.</CardDescription></CardHeader>
-              <CardContent className="space-y-4">
-                {imageFields.map((item, index) => (<Card key={item.id || index} className="p-4 border shadow-sm"><div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2"><FormField control={form.control} name={`images.${index}.image_url`} render={({ field }) => (<FormItem className="md:col-span-2"><FormLabel>Image URL</FormLabel><FormControl><Input placeholder="https://example.com/image.png" {...field} /></FormControl><FormMessage /></FormItem>)} /><FormField control={form.control} name={`images.${index}.alt_text`} render={({ field }) => (<FormItem><FormLabel>Alt Text (Optional)</FormLabel><FormControl><Input placeholder="Descriptive alt text" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} /><FormField control={form.control} name={`images.${index}.display_order`} render={({ field }) => (<FormItem><FormLabel>Display Order (Optional)</FormLabel><FormControl><Input type="number" placeholder="0" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} /></div><div className="flex justify-between items-center mt-2"><FormField control={form.control} name={`images.${index}.is_primary`} render={({ field }) => (<FormItem className="flex flex-row items-center space-x-2"><FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="mb-0 font-normal">Primary Image</FormLabel></FormItem>)} /><Button type="button" variant="destructive" size="sm" onClick={() => removeImage(index)}><Trash2 className="mr-1 h-4 w-4" /> Remove Image</Button></div></Card>))}
-                <Button type="button" variant="outline" onClick={() => appendImage({ image_url: '', alt_text: '', display_order: '', is_primary: imageFields.length === 0 })}><PlusCircle className="mr-2 h-4 w-4" /> Add Image URL</Button>
-                <FormMessage>{form.formState.errors.images?.message}</FormMessage>
               </CardContent>
             </Card>
 

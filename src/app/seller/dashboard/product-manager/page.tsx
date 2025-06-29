@@ -46,6 +46,7 @@ interface ProductVariant {
   basePrice: number | null;
   additionalPrice: number;
   available: boolean;
+  images?: ProductImage[]; // Added images to variant
   priceTiers: PriceTier[];
 }
 
@@ -64,7 +65,6 @@ export interface SellerProduct {
   createdAt: string;
   updatedAt: string | null;
   seller: { id: string; name: string; };
-  images: ProductImage[];
   specifications: ProductSpecification[];
   variants: ProductVariant[];
 }
@@ -121,12 +121,6 @@ export default function SellerProductManagerPage() {
         createdAt: p.createdAt,
         updatedAt: p.updatedAt,
         seller: p.seller,
-        images: p.images?.map((img: any) => ({
-          id: img.id,
-          imageUrl: img.imageUrl,
-          altText: img.altText,
-          isPrimary: img.isPrimary,
-        })) || [],
         specifications: p.specifications?.map((spec: any) => ({
           id: spec.id,
           specName: spec.specName,
@@ -140,6 +134,12 @@ export default function SellerProductManagerPage() {
           basePrice: variant.basePrice,
           additionalPrice: variant.additionalPrice,
           available: variant.available,
+          images: variant.images?.map((img: any) => ({ // Map images to variant
+            id: img.id,
+            imageUrl: img.imageUrl,
+            altText: img.altText,
+            isPrimary: img.isPrimary,
+          })) || [],
           priceTiers: variant.priceTiers?.map((tier: any) => ({
             id: tier.id,
             minQuantity: tier.minQuantity,
@@ -286,7 +286,7 @@ export default function SellerProductManagerPage() {
                 </TableHeader>
                 <TableBody>
                   {products.map((product) => {
-                    const primaryImage = product.images?.find(img => img.isPrimary) || product.images?.[0];
+                    const primaryImage = product.variants?.[0]?.images?.find(img => img.isPrimary) || product.variants?.[0]?.images?.[0];
                     return (
                       <Fragment key={product.id}>
                         <TableRow onClick={() => handleToggleRow(product.id)} className="cursor-pointer hover:bg-muted/50">
@@ -388,15 +388,16 @@ export default function SellerProductManagerPage() {
                                     </div>
                                     <div>
                                       <h4 className="font-headline text-base mb-2">Images</h4>
-                                      {product.images.length > 0 ? (
+                                      {product.variants.length > 0 && product.variants[0].images && product.variants[0].images.length > 0 ? (
                                         <ul className="text-sm space-y-1 list-disc list-inside">
-                                          {product.images.map(img => (
+                                          {product.variants[0].images.map(img => (
                                             <li key={img.id} className="text-muted-foreground" title={img.imageUrl}>
                                               <a href={img.imageUrl} target="_blank" rel="noopener noreferrer" className="hover:text-primary underline">{img.imageUrl}</a>
                                               {img.isPrimary && <Badge variant="outline" className="ml-2">Primary</Badge>}
                                               <Avatar className="h-16 w-16 rounded-md mt-2">
                                                 <AvatarImage src={img.imageUrl} alt={img.altText || product.name} className="object-cover" />
-                                                <AvatarFallback className="rounded-md"><ImageIcon className="h-8 w-8 text-muted-foreground" />
+                                                <AvatarFallback className="rounded-md">
+                                                  <ImageIcon className="h-8 w-8 text-muted-foreground" />
                                                 </AvatarFallback>
                                               </Avatar>
                                             </li>

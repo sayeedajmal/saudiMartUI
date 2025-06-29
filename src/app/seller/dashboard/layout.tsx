@@ -18,11 +18,11 @@ import RoleProtectedRoute from '@/components/layout/RoleProtectedRoute';
 
 const menuItems = [
     { href: "/seller/dashboard", tooltip: "Dashboard", icon: LayoutDashboard, label: "Dashboard" },
-    { href: "/seller/dashboard/warehouses", tooltip: "Manage Warehouses", icon: Warehouse, label: "Warehouses" },
     { href: "/seller/dashboard/addresses", tooltip: "Manage Addresses", icon: MapPin, label: "Addresses" },
+    { href: "/seller/dashboard/warehouses", tooltip: "Manage Warehouses", icon: Warehouse, label: "Warehouses" },
     { href: "/seller/dashboard/category-management", tooltip: "Category Management", icon: Shapes, label: "Category Management" },
-    { href: "/seller/dashboard/inventory", tooltip: "Inventory", icon: Boxes, label: "Inventory" },
     { href: "/seller/dashboard/product-manager", tooltip: "Product Manager", icon: Package, label: "Product Manager" },
+    { href: "/seller/dashboard/inventory", tooltip: "Inventory", icon: Boxes, label: "Inventory" },
     { href: "/seller/dashboard/orders", tooltip: "Manage Orders", icon: ShoppingBag, label: "Manage Orders" },
     { href: "/seller/dashboard/quotes", tooltip: "Manage Quotes", icon: FileText, label: "Manage Quotes" },
     { href: "/seller/dashboard/enquiries", tooltip: "Manage Enquiries", icon: MessageSquare, label: "Manage Enquiries" },
