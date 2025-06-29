@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { SidebarTrigger } from "@/components/ui/sidebar";
@@ -54,8 +55,11 @@ const priceTierSchema = z.object({
 
 const imageSchema = z.object({
   id: z.union([z.string(), z.number()]).optional(),
-  imageUrl: z.string().url({ message: "Please enter a valid URL for the image." }),
-  altText: z.string().optional().nullable(),
+  imageUrl: z.string()
+    .min(1, "Image URL is required.")
+    .url({ message: "Please enter a valid URL." })
+    .max(500, { message: "Image URL cannot be longer than 500 characters." }),
+  altText: z.string().max(255).optional().nullable(),
   displayOrder: z.preprocess(
     (val) => (val === "" ? undefined : val),
     z.coerce.number({ invalid_type_error: "Display order must be a number" }).int().optional().nullable()
@@ -135,7 +139,20 @@ const VariantCard = ({ variantIndex, removeVariant }: { variantIndex: number, re
          {imageFields.map((item, imageIndex) => (
             <Card key={item.id} className="p-3 bg-background relative">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField control={control} name={`variants.${variantIndex}.images.${imageIndex}.imageUrl`} render={({ field }) => (<FormItem className="md:col-span-2"><FormLabel>Image URL</FormLabel><FormControl><Input placeholder="https://example.com/image.png" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField
+                      control={control}
+                      name={`variants.${variantIndex}.images.${imageIndex}.imageUrl`}
+                      render={({ field }) => (
+                        <FormItem className="md:col-span-2">
+                          <FormLabel>Image URL</FormLabel>
+                          <FormControl>
+                            <Input placeholder="https://example.com/image.png" {...field} />
+                          </FormControl>
+                          <FormDescription>Must be a direct link (URL), not a data URI.</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                     <FormField control={control} name={`variants.${variantIndex}.images.${imageIndex}.altText`} render={({ field }) => (<FormItem><FormLabel>Alt Text</FormLabel><FormControl><Input placeholder="Descriptive alt text" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
                     <FormField control={control} name={`variants.${variantIndex}.images.${imageIndex}.isPrimary`} render={({ field }) => (<FormItem className="flex flex-row items-center space-x-2 pt-7"><FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="mb-0 font-normal">Primary Image</FormLabel></FormItem>)} />
                 </div>
@@ -475,3 +492,4 @@ export default function ManageProductPage() {
     </>
   );
 }
+
