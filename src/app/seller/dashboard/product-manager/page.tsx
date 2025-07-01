@@ -4,8 +4,8 @@
 import { useState, useEffect, useCallback, Fragment } from 'react';
 import { useSelector } from 'react-redux';
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { Package, PlusCircle, Edit3, Trash2, Loader2, Eye, ChevronDown, Image as ImageIcon } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Package, PlusCircle, Edit3, Trash2, Loader2, Eye, ChevronDown, Image as ImageIcon, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -46,7 +46,7 @@ interface ProductVariant {
   basePrice: number | null;
   additionalPrice: number;
   available: boolean;
-  images?: ProductImage[]; // Added images to variant
+  images?: ProductImage[]; 
   priceTiers: PriceTier[];
 }
 
@@ -69,6 +69,15 @@ export interface SellerProduct {
   variants: ProductVariant[];
 }
 
+interface PaginationInfo {
+    totalPages: number;
+    totalElements: number;
+    isFirst: boolean;
+    isLast: boolean;
+    pageNumber: number;
+    pageSize: number;
+}
+
 export default function SellerProductManagerPage() {
   const [products, setProducts] = useState<SellerProduct[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -76,6 +85,16 @@ export default function SellerProductManagerPage() {
   const [productToDelete, setProductToDelete] = useState<SellerProduct | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [paginationInfo, setPaginationInfo] = useState<PaginationInfo>({
+    totalPages: 1,
+    totalElements: 0,
+    isFirst: true,
+    isLast: true,
+    pageNumber: 0,
+    pageSize: 10,
+  });
+
 
   const accessToken = useSelector(selectAccessToken);
   const currentUser = useSelector(selectUser) as MyProfile | null;
@@ -85,7 +104,7 @@ export default function SellerProductManagerPage() {
     setExpandedRowId(currentId => (currentId === productId ? null : productId));
   };
 
-  const fetchSellerProducts = useCallback(async () => {
+  const fetchSellerProducts = useCallback(async (page = 0) => {
     setIsLoading(true);
     setError(null);
     if (!accessToken || !currentUser?.id) {
@@ -95,7 +114,7 @@ export default function SellerProductManagerPage() {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/products/seller/${currentUser.id}`, {
+      const response = await fetch(`${API_BASE_URL}/products/seller/${currentUser.id}?page=${page}&size=10`, {
         headers: { 'Authorization': `Bearer ${accessToken}` },
       });
 
@@ -104,7 +123,8 @@ export default function SellerProductManagerPage() {
         throw new Error(responseData.message || 'Failed to fetch products');
       }
 
-      const sellerApiProducts: any[] = responseData.data || [];
+      const productData = responseData.data;
+      const sellerApiProducts: any[] = productData?.content || [];
 
       const fetchedProducts: SellerProduct[] = sellerApiProducts.map((p: any) => ({
         id: p.id,
@@ -134,7 +154,7 @@ export default function SellerProductManagerPage() {
           basePrice: variant.basePrice,
           additionalPrice: variant.additionalPrice,
           available: variant.available,
-          images: variant.images?.map((img: any) => ({ // Map images to variant
+          images: variant.images?.map((img: any) => ({
             id: img.id,
             imageUrl: img.imageUrl,
             altText: img.altText,
@@ -151,6 +171,16 @@ export default function SellerProductManagerPage() {
       }));
 
       setProducts(fetchedProducts);
+      setPaginationInfo({
+        totalPages: productData?.totalPages || 1,
+        totalElements: productData?.totalElements || 0,
+        isFirst: productData?.first || true,
+        isLast: productData?.last || true,
+        pageNumber: productData?.number || 0,
+        pageSize: productData?.size || 10,
+      });
+      setCurrentPage(productData?.number || 0);
+
       if (fetchedProducts.length === 0) {
         toast({ title: "No Products Found", description: "You haven't added any products yet." });
       }
@@ -175,6 +205,19 @@ export default function SellerProductManagerPage() {
       setIsLoading(false);
     }
   }, [accessToken, currentUser, fetchSellerProducts]);
+
+  const handleNextPage = () => {
+    if (!paginationInfo.isLast) {
+      fetchSellerProducts(currentPage + 1);
+    }
+  };
+
+  const handlePrevPage = () => {
+    if (!paginationInfo.isFirst) {
+      fetchSellerProducts(currentPage - 1);
+    }
+  };
+
 
   const handleDeleteProduct = (e: React.MouseEvent, product: SellerProduct) => {
     e.stopPropagation();
@@ -203,7 +246,7 @@ export default function SellerProductManagerPage() {
       }
 
       toast({ title: "Product Deleted", description: responseData.message || `${productToDelete.name} has been deleted.` });
-      fetchSellerProducts();
+      fetchSellerProducts(currentPage);
     } catch (err: any) {
       toast({ variant: "destructive", title: "Error Deleting Product", description: err.message });
     } finally {
@@ -226,16 +269,16 @@ export default function SellerProductManagerPage() {
               <CardDescription>View, add, edit, or delete your product listings.</CardDescription>
             </div>
 
-            <div>
+            <div className="flex items-center gap-2">
               <Button
                 variant="outline"
                 size="sm"
-                onClick={fetchSellerProducts}
+                onClick={() => fetchSellerProducts(currentPage)}
                 disabled={isLoading}
-                className="m-2 bg-accent text-accent-foreground hover:bg-accent/90"
+                className="bg-accent text-accent-foreground hover:bg-accent/90"
                 title="Refresh Products"
               >
-                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
                 Refresh
               </Button>
               <Button
@@ -251,7 +294,7 @@ export default function SellerProductManagerPage() {
 
           </CardHeader>
           <CardContent>
-            {isLoading && (
+            {isLoading && products.length === 0 && (
               <div className="flex justify-center items-center py-8">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 <p className="ml-2 text-muted-foreground">Loading products...</p>
@@ -419,6 +462,21 @@ export default function SellerProductManagerPage() {
               </Table>
             )}
           </CardContent>
+          {products.length > 0 && (
+              <CardFooter className="flex items-center justify-between pt-4 border-t">
+                  <div className="text-sm text-muted-foreground">
+                      Page <strong>{paginationInfo.pageNumber + 1}</strong> of <strong>{paginationInfo.totalPages}</strong>
+                  </div>
+                  <div className="flex items-center gap-2">
+                      <Button variant="outline" size="sm" onClick={handlePrevPage} disabled={paginationInfo.isFirst || isLoading}>
+                      <ChevronLeft className="h-4 w-4 mr-1" /> Previous
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={handleNextPage} disabled={paginationInfo.isLast || isLoading}>
+                      Next <ChevronRight className="h-4 w-4 ml-1" />
+                      </Button>
+                  </div>
+              </CardFooter>
+          )}
         </Card>
       </main>
 
