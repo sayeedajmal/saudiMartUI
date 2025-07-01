@@ -5,9 +5,9 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, Loader2 } from "lucide-react";
+import { ArrowRight, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { API_BASE_URL } from '@/lib/api';
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface Category {
@@ -15,6 +15,12 @@ interface Category {
   name: string;
   imageUrl: string;
   description: string | null;
+}
+
+interface PaginationInfo {
+    totalPages: number;
+    isFirst: boolean;
+    isLast: boolean;
 }
 
 // Helper function to create a URL-friendly slug from a category name
@@ -27,39 +33,73 @@ export default function DynamicCategoryGrid() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function getActiveCategories() {
-      try {
-        const response = await fetch(`${API_BASE_URL}/categories?isActive=true`);
-        if (!response.ok) {
-          throw new Error(`Failed to fetch categories: ${response.statusText}`);
-        }
-        const responseData = await response.json();
-        // The API now returns a paginated response, so we get categories from the 'content' field
-        setCategories(responseData.data?.content || []);
-      } catch (err: any) {
-        console.error("Error fetching categories:", err);
-        setError(err.message);
-      } finally {
-        setIsLoading(false);
-      }
-    }
+  const [currentPage, setCurrentPage] = useState(0);
+  const [paginationInfo, setPaginationInfo] = useState<PaginationInfo>({
+    totalPages: 1,
+    isFirst: true,
+    isLast: true,
+  });
 
-    getActiveCategories();
+  const getActiveCategories = useCallback(async (page = 0) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`${API_BASE_URL}/categories?isActive=true&page=${page}&size=4`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch categories: ${response.statusText}`);
+      }
+      const responseData = await response.json();
+      const categoryData = responseData.data;
+      setCategories(categoryData?.content || []);
+      
+      setPaginationInfo({
+        totalPages: categoryData?.totalPages || 1,
+        isFirst: categoryData?.first || true,
+        isLast: categoryData?.last || true,
+      });
+
+    } catch (err: any) {
+      console.error("Error fetching categories:", err);
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
-  const categoriesToDisplay = categories.slice(0, 4);
+  useEffect(() => {
+    getActiveCategories(currentPage);
+  }, [getActiveCategories, currentPage]);
 
-  if (isLoading) {
+  const handleNextPage = () => {
+    if (!paginationInfo.isLast) {
+      setCurrentPage(prev => prev + 1);
+    }
+  };
+
+  const handlePrevPage = () => {
+    if (!paginationInfo.isFirst) {
+      setCurrentPage(prev => prev - 1);
+    }
+  };
+
+  if (isLoading && categories.length === 0) {
     return (
         <section className="py-16 md:py-24">
             <div className="container">
-                <h2 className="font-headline text-3xl md:text-4xl font-bold text-center mb-4">
-                  Explore Popular Categories
-                </h2>
-                <p className="text-muted-foreground text-center mb-12 max-w-2xl mx-auto">
-                  Discover a wide range of products across various industries to meet your business needs.
-                </p>
+                <div className="flex justify-between items-center mb-12">
+                  <div className="max-w-2xl">
+                    <h2 className="font-headline text-3xl md:text-4xl font-bold mb-4">
+                      Explore Popular Categories
+                    </h2>
+                    <p className="text-muted-foreground">
+                      Discover a wide range of products across various industries to meet your business needs.
+                    </p>
+                  </div>
+                   <div className="hidden sm:flex items-center gap-2">
+                      <Skeleton className="h-10 w-10 rounded-md" />
+                      <Skeleton className="h-10 w-10 rounded-md" />
+                  </div>
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                     {[...Array(4)].map((_, i) => (
                         <Card key={i} className="overflow-hidden shadow-lg flex flex-col">
@@ -91,21 +131,48 @@ export default function DynamicCategoryGrid() {
     );
   }
 
-  if (categoriesToDisplay.length === 0) {
-    return null; // Don't render the section if there are no categories
+  if (!isLoading && categories.length === 0) {
+    return (
+       <section className="py-16 md:py-24">
+        <div className="container text-center">
+          <h2 className="font-headline text-2xl font-bold mb-2">No Categories Found</h2>
+          <p>There are currently no active categories to display.</p>
+        </div>
+      </section>
+    );
   }
 
   return (
     <section className="py-16 md:py-24">
       <div className="container">
-        <h2 className="font-headline text-3xl md:text-4xl font-bold text-center mb-4">
-          Explore Popular Categories
-        </h2>
-        <p className="text-muted-foreground text-center mb-12 max-w-2xl mx-auto">
-          Discover a wide range of products across various industries to meet your business needs.
-        </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {categoriesToDisplay.map((category) => (
+        <div className="flex justify-between items-center mb-12">
+            <div className="max-w-2xl">
+              <h2 className="font-headline text-3xl md:text-4xl font-bold text-center sm:text-left mb-4">
+                Explore Popular Categories
+              </h2>
+              <p className="text-muted-foreground text-center sm:text-left">
+                Discover a wide range of products across various industries to meet your business needs.
+              </p>
+            </div>
+            {paginationInfo.totalPages > 1 && (
+              <div className="hidden sm:flex items-center gap-2">
+                <Button variant="outline" size="icon" onClick={handlePrevPage} disabled={paginationInfo.isFirst || isLoading} aria-label="Previous Categories">
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button variant="outline" size="icon" onClick={handleNextPage} disabled={paginationInfo.isLast || isLoading} aria-label="Next Categories">
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+        </div>
+        
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 relative min-h-[420px]">
+          {isLoading && (
+            <div className="absolute inset-0 bg-background/50 flex items-center justify-center z-10 rounded-lg">
+              <Loader2 className="h-10 w-10 animate-spin text-primary" />
+            </div>
+          )}
+          {categories.map((category) => (
             <Card key={category.id} className="overflow-hidden shadow-lg hover:shadow-2xl transition-shadow duration-300 flex flex-col">
               <CardHeader className="p-0">
                 <div className="relative h-48 w-full">
