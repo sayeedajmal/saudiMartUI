@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,7 +35,8 @@ export default function DynamicCategoryGrid() {
           throw new Error(`Failed to fetch categories: ${response.statusText}`);
         }
         const responseData = await response.json();
-        setCategories(responseData.data || []);
+        // The API now returns a paginated response, so we get categories from the 'content' field
+        setCategories(responseData.data?.content || []);
       } catch (err: any) {
         console.error("Error fetching categories:", err);
         setError(err.message);
