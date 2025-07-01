@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { RefreshCw, Search, FilterIcon, XCircle, Shapes, PlusCircle, Edit3, Trash2, Loader2, Image as ImageIcon } from "lucide-react";
+import { RefreshCw, Search, FilterIcon, XCircle, Shapes, PlusCircle, Edit3, Trash2, Loader2, Image as ImageIcon, ChevronLeft, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,6 +29,15 @@ export interface SellerCategory {
   createdAt?: string;
 }
 
+interface PaginationInfo {
+    totalPages: number;
+    totalElements: number;
+    isFirst: boolean;
+    isLast: boolean;
+    pageNumber: number;
+    pageSize: number;
+}
+
 export default function SellerCategoryManagementPage() {
   const [categories, setCategories] = useState<SellerCategory[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -42,10 +51,21 @@ export default function SellerCategoryManagementPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
 
+  const [currentPage, setCurrentPage] = useState(0);
+  const [paginationInfo, setPaginationInfo] = useState<PaginationInfo>({
+    totalPages: 1,
+    totalElements: 0,
+    isFirst: true,
+    isLast: true,
+    pageNumber: 0,
+    pageSize: 10,
+  });
+
+
   const accessToken = useSelector(selectAccessToken);
   const { toast } = useToast();
 
-  const fetchSellerCategories = useCallback(async (currentSearchTerm = searchTerm, currentStatusFilter = statusFilter) => {
+  const fetchSellerCategories = useCallback(async (page = 0, currentSearchTerm = searchTerm, currentStatusFilter = statusFilter) => {
     setIsLoading(true);
     setError(null);
     if (!accessToken) {
@@ -57,6 +77,8 @@ export default function SellerCategoryManagementPage() {
 
     let url = `${API_BASE_URL}/categories`;
     const params = new URLSearchParams();
+    params.append('page', page.toString());
+    params.append('size', '10');
 
     if (currentSearchTerm.trim() !== '') {
       params.append('name', currentSearchTerm.trim());
@@ -83,16 +105,20 @@ export default function SellerCategoryManagementPage() {
         throw new Error(responseData.message || `Failed to fetch categories. Status: ${response.status}`);
       }
       
-      const categoryContent = responseData.data?.content || [];
-      const fetchedCategories: SellerCategory[] = categoryContent.map((cat: any) => ({
-        id: cat.id,
-        name: cat.name,
-        description: cat.description,
-        imageUrl: cat.imageUrl,
-        isActive: cat.isActive,
-        createdAt: cat.createdAt,
-      }));
+      const categoryData = responseData.data;
+      const fetchedCategories: SellerCategory[] = categoryData?.content || [];
       setCategories(fetchedCategories);
+      
+      setPaginationInfo({
+        totalPages: categoryData?.totalPages || 1,
+        totalElements: categoryData?.totalElements || 0,
+        isFirst: categoryData?.first || true,
+        isLast: categoryData?.last || true,
+        pageNumber: categoryData?.number || 0,
+        pageSize: categoryData?.size || 10,
+      });
+      setCurrentPage(categoryData?.number || 0);
+
       if (fetchedCategories.length === 0 && (currentSearchTerm || currentStatusFilter !== 'all')) {
         toast({ title: "No Results", description: "No categories match your current filters." });
       }
@@ -110,17 +136,35 @@ export default function SellerCategoryManagementPage() {
   }, [accessToken, toast, searchTerm, statusFilter]);
 
   useEffect(() => {
-    fetchSellerCategories();
+    fetchSellerCategories(currentPage);
   }, [accessToken]); 
 
   const handleFilterApply = () => {
-    fetchSellerCategories(searchTerm, statusFilter);
+    setCurrentPage(0);
+    fetchSellerCategories(0, searchTerm, statusFilter);
   };
 
   const handleClearFilters = () => {
     setSearchTerm('');
     setStatusFilter('all');
-    fetchSellerCategories('', 'all'); 
+    setCurrentPage(0);
+    fetchSellerCategories(0, '', 'all'); 
+  };
+  
+  const handleRefresh = () => {
+      fetchSellerCategories(currentPage, searchTerm, statusFilter);
+  };
+
+  const handleNextPage = () => {
+    if (!paginationInfo.isLast) {
+      fetchSellerCategories(currentPage + 1);
+    }
+  };
+
+  const handlePrevPage = () => {
+    if (!paginationInfo.isFirst) {
+      fetchSellerCategories(currentPage - 1);
+    }
   };
 
   const handleEdit = (category: SellerCategory) => {
@@ -154,7 +198,7 @@ export default function SellerCategoryManagementPage() {
       }
 
       toast({ title: "Category Deleted", description: responseData.message || `${categoryToDelete.name} has been deleted.` });
-      fetchSellerCategories(); 
+      fetchSellerCategories(currentPage);
     } catch (err: any) {
       toast({
         variant: "destructive",
@@ -181,7 +225,7 @@ export default function SellerCategoryManagementPage() {
               <CardDescription>Manage categories for your products. (Note: Currently displays all system categories)</CardDescription>
             </div>
             <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
-              <Button onClick={() => fetchSellerCategories(searchTerm, statusFilter)} variant="outline" disabled={isLoading || isDeleting} className="bg-accent text-accent-foreground hover:bg-accent/90 w-full sm:w-auto">
+              <Button onClick={handleRefresh} variant="outline" disabled={isLoading || isDeleting} className="bg-accent text-accent-foreground hover:bg-accent/90 w-full sm:w-auto">
                 <RefreshCw className={`mr-2 h-4 w-4 ${isLoading && !isDeleting && !categoryToDelete ? 'animate-spin' : ''}`} /> Refresh
               </Button>
               <Button onClick={() => setIsCreateModalOpen(true)} className="bg-accent text-accent-foreground hover:bg-accent/90 w-full sm:w-auto" disabled={isLoading || isDeleting}>
@@ -209,7 +253,7 @@ export default function SellerCategoryManagementPage() {
                 <div className="md:col-span-3">
                   <label htmlFor="status-filter" className="block text-sm font-medium text-foreground mb-1">Filter by Status</label>
                   <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as 'all' | 'active' | 'inactive')}>
-                    <SelectTrigger id="status-filter">
+                    <SelectTrigger id="status-filter" className='w-full'>
                       <SelectValue placeholder="Select status" />
                     </SelectTrigger>
                     <SelectContent>
@@ -223,7 +267,7 @@ export default function SellerCategoryManagementPage() {
                   <Button onClick={handleFilterApply} disabled={isLoading} className="flex-1">
                     <FilterIcon className="mr-2 h-4 w-2" /> Apply
                   </Button>
-                  <Button onClick={handleClearFilters} variant="outline" disabled={isLoading}>
+                  <Button onClick={handleClearFilters} variant="outline" disabled={isLoading} className='flex-1'>
                     <XCircle className="mr-2 h-4 w-2" /> Clear
                   </Button>
                 </div>
@@ -283,6 +327,19 @@ export default function SellerCategoryManagementPage() {
               </Table>
             )}
           </CardContent>
+           <CardFooter className="flex items-center justify-between pt-4 border-t">
+              <div className="text-sm text-muted-foreground">
+                Page <strong>{paginationInfo.pageNumber + 1}</strong> of <strong>{paginationInfo.totalPages}</strong>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={handlePrevPage} disabled={paginationInfo.isFirst || isLoading}>
+                  <ChevronLeft className="h-4 w-4 mr-1" /> Previous
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleNextPage} disabled={paginationInfo.isLast || isLoading}>
+                  Next <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
+          </CardFooter>
         </Card>
       </main>
 
@@ -297,7 +354,7 @@ export default function SellerCategoryManagementPage() {
           <CreateCategoryForm
             onSuccess={() => {
               setIsCreateModalOpen(false);
-              fetchSellerCategories(searchTerm, statusFilter); 
+              fetchSellerCategories(0, searchTerm, statusFilter); 
             }}
             onCancel={() => setIsCreateModalOpen(false)}
           />
@@ -321,7 +378,7 @@ export default function SellerCategoryManagementPage() {
               onSuccess={() => {
                 setIsEditModalOpen(false);
                 setSelectedCategoryToEdit(null);
-                fetchSellerCategories(searchTerm, statusFilter); 
+                fetchSellerCategories(currentPage, searchTerm, statusFilter); 
               }}
               onCancel={() => {
                 setIsEditModalOpen(false);
