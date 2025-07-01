@@ -109,8 +109,12 @@ export default function ProductListingPage() {
   }, [fetchProducts, currentPage]);
 
   const handleFilterSubmit = () => {
-      setCurrentPage(0); // Reset to first page on new filter
-      fetchProducts(0);
+      // Reset to first page on new filter. If already on page 0, fetch must be called manually.
+      if (currentPage !== 0) {
+        setCurrentPage(0);
+      } else {
+        fetchProducts(0);
+      }
   };
   
   const handlePageChange = (newPage: number) => {
