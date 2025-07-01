@@ -83,7 +83,8 @@ export default function SellerCategoryManagementPage() {
         throw new Error(responseData.message || `Failed to fetch categories. Status: ${response.status}`);
       }
       
-      const fetchedCategories: SellerCategory[] = responseData.data.map((cat: any) => ({
+      const categoryContent = responseData.data?.content || [];
+      const fetchedCategories: SellerCategory[] = categoryContent.map((cat: any) => ({
         id: cat.id,
         name: cat.name,
         description: cat.description,
