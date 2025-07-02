@@ -23,11 +23,6 @@ interface PaginationInfo {
     isLast: boolean;
 }
 
-// Helper function to create a URL-friendly slug from a category name
-const createSlug = (name: string) => {
-  return name.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-').replace(/[^\w-]+/g, '');
-};
-
 export default function DynamicCategoryGrid() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -193,7 +188,7 @@ export default function DynamicCategoryGrid() {
               </CardContent>
               <CardFooter className="p-4 pt-0">
                 <Button variant="outline" asChild className="w-full">
-                  <Link href={`/products?category=${createSlug(category.name)}`}>
+                  <Link href={`/products?category=${category.name}`}>
                     View Products <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
                 </Button>
