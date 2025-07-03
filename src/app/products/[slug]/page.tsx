@@ -11,13 +11,6 @@ import { ShoppingCart, Send, AlertTriangle, ChevronLeft, ChevronRight, Minus, Pl
 import { Separator } from '@/components/ui/separator';
 import Link from 'next/link';
 import { useEffect, useState, useCallback } from 'react';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
@@ -193,18 +186,19 @@ export default function ProductDetailPage() {
             <Separator className="mb-6"/>
 
             {product.variants && product.variants.length > 1 && (
-              <div className="space-y-4 mb-6">
-                 <div>
-                    <Label className="text-sm font-medium">Variant</Label>
-                    <Select value={selectedVariant?.id} onValueChange={handleVariantChange}>
-                      <SelectTrigger className="mt-1"><SelectValue placeholder="Select variant" /></SelectTrigger>
-                      <SelectContent>
-                        {product.variants.map(v => (
-                          <SelectItem key={v.id} value={v.id}>{v.variantName || v.sku}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+              <div className="space-y-2 mb-6">
+                <Label className="text-sm font-medium">Variant</Label>
+                <div className="flex flex-wrap gap-2">
+                  {product.variants.map((variant) => (
+                    <Button
+                      key={variant.id}
+                      variant={selectedVariant?.id === variant.id ? 'default' : 'outline'}
+                      onClick={() => handleVariantChange(variant.id)}
+                    >
+                      {variant.variantName || variant.sku}
+                    </Button>
+                  ))}
+                </div>
               </div>
             )}
 
