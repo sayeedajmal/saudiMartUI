@@ -7,7 +7,6 @@ import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ShoppingCart, Send, AlertTriangle, ChevronLeft, ChevronRight, Minus, Plus, Loader2 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import Link from 'next/link';
@@ -190,6 +189,9 @@ export default function ProductDetailPage() {
           <CardContent>
             <p className="text-2xl font-semibold text-primary mb-4">${selectedVariant?.basePrice?.toFixed(2) || product.basePrice?.toFixed(2) || 'N/A'}</p>
             
+            <p className="text-muted-foreground whitespace-pre-line text-sm mb-6">{product.description}</p>
+            <Separator className="mb-6"/>
+
             {product.variants && product.variants.length > 1 && (
               <div className="space-y-4 mb-6">
                  <div>
@@ -230,27 +232,27 @@ export default function ProductDetailPage() {
         </Card>
       </div>
 
-      <Tabs defaultValue="description" className="mt-12">
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-2 max-w-md mx-auto">
-          <TabsTrigger value="description">Description</TabsTrigger>
-          <TabsTrigger value="specifications">Specifications</TabsTrigger>
-        </TabsList>
-        <TabsContent value="description" className="mt-6 p-6 border rounded-lg shadow-sm">
-          <h3 className="font-headline text-xl font-semibold mb-3">Product Description</h3>
-          <p className="text-muted-foreground whitespace-pre-line">{product.description}</p>
-        </TabsContent>
-        <TabsContent value="specifications" className="mt-6 p-6 border rounded-lg shadow-sm">
-          <h3 className="font-headline text-xl font-semibold mb-4">Product Specifications</h3>
-          <div className="space-y-2">
-            {product.specifications.map((spec) => (
-              <div key={spec.id} className="flex justify-between text-sm">
-                <span className="font-medium text-foreground">{spec.specName}:</span>
-                <span className="text-muted-foreground">{spec.specValue} {spec.unit || ''}</span>
-              </div>
-            ))}
-          </div>
-        </TabsContent>
-      </Tabs>
+      <div className="mt-12">
+        <Card className="shadow-sm">
+            <CardHeader>
+                <CardTitle className="font-headline text-xl">Product Specifications</CardTitle>
+            </CardHeader>
+            <CardContent>
+                {product.specifications && product.specifications.length > 0 ? (
+                    <div className="space-y-2">
+                        {product.specifications.map((spec) => (
+                        <div key={spec.id} className="flex justify-between text-sm py-2 border-b last:border-b-0">
+                            <span className="font-medium text-foreground">{spec.specName}:</span>
+                            <span className="text-muted-foreground text-right">{spec.specValue} {spec.unit || ''}</span>
+                        </div>
+                        ))}
+                    </div>
+                ) : (
+                    <p className="text-sm text-muted-foreground">No specifications provided for this product.</p>
+                )}
+            </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
