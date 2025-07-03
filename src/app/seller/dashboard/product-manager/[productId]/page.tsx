@@ -225,7 +225,7 @@ export default function ManageProductPage() {
       });
       const responseData = await response.json();
       if (!response.ok) throw new Error(responseData.message || "Failed to fetch categories");
-      setCategories(responseData.data || []);
+      setCategories(responseData.data.content || []);
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error fetching categories", description: error.message });
       setCategories([]);

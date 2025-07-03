@@ -412,6 +412,28 @@ export default function SellerProductManagerPage() {
                                               <p className="font-semibold">{v.variantName || 'Default Variant'}</p>
                                               <p className="text-sm text-muted-foreground">SKU: {v.sku}</p>
                                               <p className="text-sm text-muted-foreground">Base Price: ${v.basePrice?.toFixed(2) || product.basePrice?.toFixed(2) || 'N/A'}</p>
+                                              
+                                              {v.images && v.images.length > 0 && (
+                                                <div className="mt-3">
+                                                  <p className="text-xs font-semibold text-muted-foreground mb-2">IMAGES</p>
+                                                  <div className="flex flex-wrap gap-2">
+                                                    {v.images.map(img => (
+                                                      <div key={img.id} className="relative">
+                                                        <a href={img.imageUrl} target="_blank" rel="noopener noreferrer">
+                                                            <Avatar className="h-16 w-16 rounded-md">
+                                                                <AvatarImage src={img.imageUrl} alt={img.altText || v.variantName || product.name} className="object-cover" />
+                                                                <AvatarFallback className="rounded-md bg-muted"><ImageIcon className="h-6 w-6 text-muted-foreground" /></AvatarFallback>
+                                                            </Avatar>
+                                                        </a>
+                                                        {img.isPrimary && (
+                                                            <Badge variant="secondary" className="absolute -top-1 -right-2 text-xs px-1.5 py-0.5 scale-90">Primary</Badge>
+                                                        )}
+                                                      </div>
+                                                    ))}
+                                                  </div>
+                                                </div>
+                                              )}
+
                                               {v.priceTiers.length > 0 && (
                                                 <div className="mt-2">
                                                   <p className="text-xs font-semibold text-muted-foreground">PRICE TIERS</p>
@@ -429,25 +451,6 @@ export default function SellerProductManagerPage() {
                                           ))}
                                         </div>
                                       ) : (<p className="text-sm text-muted-foreground">No variants defined.</p>)}
-                                    </div>
-                                    <div>
-                                      <h4 className="font-headline text-base mb-2">Images</h4>
-                                      {product.variants.length > 0 && product.variants[0].images && product.variants[0].images.length > 0 ? (
-                                        <ul className="text-sm space-y-1 list-disc list-inside">
-                                          {product.variants[0].images.map(img => (
-                                            <li key={img.id} className="text-muted-foreground" title={img.imageUrl}>
-                                              <a href={img.imageUrl} target="_blank" rel="noopener noreferrer" className="hover:text-primary underline">{img.imageUrl}</a>
-                                              {img.isPrimary && <Badge variant="outline" className="ml-2">Primary</Badge>}
-                                              <Avatar className="h-16 w-16 rounded-md mt-2">
-                                                <AvatarImage src={img.imageUrl} alt={img.altText || product.name} className="object-cover" />
-                                                <AvatarFallback className="rounded-md">
-                                                  <ImageIcon className="h-8 w-8 text-muted-foreground" />
-                                                </AvatarFallback>
-                                              </Avatar>
-                                            </li>
-                                          ))}
-                                        </ul>
-                                      ) : (<p className="text-sm text-muted-foreground">No images added.</p>)}
                                     </div>
                                   </div>
                                 </div>

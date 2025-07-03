@@ -78,7 +78,8 @@ export default function ProductListingPage() {
       if (minMoq) params.append('moq', minMoq);
       if (sortBy !== 'relevance') params.append('sortBy', sortBy);
 
-      const response = await fetch(`${API_BASE_URL}/products?${params.toString()}`);
+      console.log("HELLO FROM PARAM: ",params.toString())
+      const response = await fetch(`${API_BASE_URL}/products/category?${params.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch products');
 
       const data = await response.json();
