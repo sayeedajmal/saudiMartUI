@@ -133,11 +133,11 @@ export default function SellerInventoryManagementPage() {
       
       const productsData = await productsRes.json();
       if (!productsRes.ok) throw new Error(productsData.message || 'Failed to fetch products for form');
-      setProducts(productsData.data || []);
+      setProducts(productsData.data.content || []);
 
       const warehousesData = await warehousesRes.json();
       if (!warehousesRes.ok) throw new Error(warehousesData.message || 'Failed to fetch warehouses for form');
-      setWarehouses(warehousesData.data || []);
+      setWarehouses(warehousesData.data.content || []);
 
     } catch (err: any) {
       setError(err.message);

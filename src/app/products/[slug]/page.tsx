@@ -64,7 +64,7 @@ export default function ProductDetailPage() {
     // When selected variant changes, reset image index
     setSelectedImageIndex(0);
   }, [selectedVariant]);
-  
+
   const handleVariantChange = (variantId: string) => {
     const newVariant = product?.variants.find(v => v.id === variantId);
     if (newVariant) {
@@ -76,7 +76,7 @@ export default function ProductDetailPage() {
     const moq = product?.minimumOrderQuantity || 1;
     setQuantity(prev => Math.max(moq, prev + amount));
   };
-  
+
   const handleAddToCart = () => {
     console.log("Add to cart:", product?.name, quantity, selectedVariant?.variantName);
     toast({
@@ -87,7 +87,7 @@ export default function ProductDetailPage() {
 
   const handleSendInquiry = () => {
     console.log("Send inquiry:", product?.name, quantity, selectedVariant?.variantName);
-     toast({
+    toast({
       title: "Inquiry Sent (Placeholder)",
       description: `Your inquiry for ${product?.name} has been sent.`,
     });
@@ -116,7 +116,7 @@ export default function ProductDetailPage() {
           {error || "Sorry, we couldn't find the product you were looking for."}
         </p>
         <Button asChild className="mt-6 bg-accent text-accent-foreground hover:bg-accent/90">
-          <Link href="/products">Back to Products</Link>
+          <Link href={`/products${product?.category?.name ? `?category=${encodeURIComponent(product.category.name)}` : ''}`}>Back to Products</Link>
         </Button>
       </div>
     );
@@ -125,7 +125,7 @@ export default function ProductDetailPage() {
   return (
     <div className="container py-8">
       <div className="mb-4">
-        <Link href="/products" className="text-sm text-primary hover:underline flex items-center">
+        <Link href={`/products${product?.category?.name ? `?category=${encodeURIComponent(product.category.name)}` : ''}`} className="text-sm text-primary hover:underline flex items-center">
           <ChevronLeft className="h-4 w-4 mr-1" /> Back to Products
         </Link>
       </div>
@@ -134,14 +134,14 @@ export default function ProductDetailPage() {
         <div>
           <div className="relative aspect-square w-full overflow-hidden rounded-lg shadow-lg mb-4 border">
             {imagesToShow.length > 0 ? (
-                <Image
-                  key={imagesToShow[selectedImageIndex]?.id}
-                  src={imagesToShow[selectedImageIndex]?.imageUrl}
-                  alt={imagesToShow[selectedImageIndex]?.altText || `${product.name} - Image ${selectedImageIndex + 1}`}
-                  layout="fill"
-                  objectFit="contain" 
-                  data-ai-hint={product.category?.name.toLowerCase() || 'product'}
-                />
+              <Image
+                key={imagesToShow[selectedImageIndex]?.id}
+                src={imagesToShow[selectedImageIndex]?.imageUrl}
+                alt={imagesToShow[selectedImageIndex]?.altText || `${product.name} - Image ${selectedImageIndex + 1}`}
+                layout="fill"
+                objectFit="contain"
+                data-ai-hint={product.category?.name.toLowerCase() || 'product'}
+              />
             ) : <div className="bg-muted h-full w-full flex items-center justify-center">No Image</div>}
 
             {imagesToShow.length > 1 && (
@@ -157,9 +157,8 @@ export default function ProductDetailPage() {
                 <button
                   key={img.id}
                   onClick={() => setSelectedImageIndex(index)}
-                  className={`relative aspect-square rounded-md overflow-hidden border-2 ${
-                    selectedImageIndex === index ? 'border-primary' : 'border-transparent'
-                  } hover:border-primary/50 transition-all`}
+                  className={`relative aspect-square rounded-md overflow-hidden border-2 ${selectedImageIndex === index ? 'border-primary' : 'border-transparent'
+                    } hover:border-primary/50 transition-all`}
                 >
                   <Image src={img.imageUrl} alt={img.altText || `Thumbnail ${index + 1}`} layout="fill" objectFit="cover" />
                 </button>
@@ -181,9 +180,9 @@ export default function ProductDetailPage() {
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-semibold text-primary mb-4">${selectedVariant?.basePrice?.toFixed(2) || product.basePrice?.toFixed(2) || 'N/A'}</p>
-            
+
             <p className="text-muted-foreground whitespace-pre-line text-sm mb-6">{product.description}</p>
-            <Separator className="mb-6"/>
+            <Separator className="mb-6" />
 
             {product.variants && product.variants.length > 1 && (
               <div className="space-y-2 mb-6">
@@ -208,10 +207,10 @@ export default function ProductDetailPage() {
                 <Button variant="outline" size="icon" onClick={() => handleQuantityChange(-1)} disabled={quantity <= product.minimumOrderQuantity}> <Minus className="h-4 w-4" /> </Button>
                 <Input id="quantity" type="number" value={quantity}
                   onChange={(e) => {
-                      const val = parseInt(e.target.value);
-                      if (!isNaN(val)) setQuantity(Math.max(product.minimumOrderQuantity || 1, val));
+                    const val = parseInt(e.target.value);
+                    if (!isNaN(val)) setQuantity(Math.max(product.minimumOrderQuantity || 1, val));
                   }}
-                  onBlur={() => { if(quantity < (product.minimumOrderQuantity || 1)) setQuantity(product.minimumOrderQuantity || 1)}}
+                  onBlur={() => { if (quantity < (product.minimumOrderQuantity || 1)) setQuantity(product.minimumOrderQuantity || 1) }}
                   className="w-20 text-center mx-2" min={product.minimumOrderQuantity}
                 />
                 <Button variant="outline" size="icon" onClick={() => handleQuantityChange(1)}> <Plus className="h-4 w-4" /> </Button>
@@ -228,23 +227,23 @@ export default function ProductDetailPage() {
 
       <div className="mt-12">
         <Card className="shadow-sm">
-            <CardHeader>
-                <CardTitle className="font-headline text-xl">Product Specifications</CardTitle>
-            </CardHeader>
-            <CardContent>
-                {product.specifications && product.specifications.length > 0 ? (
-                    <div className="space-y-2">
-                        {product.specifications.map((spec) => (
-                        <div key={spec.id} className="flex justify-between text-sm py-2 border-b last:border-b-0">
-                            <span className="font-medium text-foreground">{spec.specName}:</span>
-                            <span className="text-muted-foreground text-right">{spec.specValue} {spec.unit || ''}</span>
-                        </div>
-                        ))}
-                    </div>
-                ) : (
-                    <p className="text-sm text-muted-foreground">No specifications provided for this product.</p>
-                )}
-            </CardContent>
+          <CardHeader>
+            <CardTitle className="font-headline text-xl">Product Specifications</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {product.specifications && product.specifications.length > 0 ? (
+              <div className="space-y-2">
+                {product.specifications.map((spec) => (
+                  <div key={spec.id} className="flex justify-between text-sm py-2 border-b last:border-b-0">
+                    <span className="font-medium text-foreground">{spec.specName}:</span>
+                    <span className="text-muted-foreground text-right">{spec.specValue} {spec.unit || ''}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No specifications provided for this product.</p>
+            )}
+          </CardContent>
         </Card>
       </div>
     </div>

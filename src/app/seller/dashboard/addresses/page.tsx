@@ -65,7 +65,7 @@ export default function SellerAddressesPage() {
         throw new Error(responseData.message || 'Failed to fetch addresses.');
       }
 
-      setAddresses(responseData.data || []);
+      setAddresses(responseData.data.content || []);
       if (!responseData.data || responseData.data.length === 0) {
         toast({ title: "No Addresses Found", description: "You haven't added any addresses yet." });
       }

@@ -72,7 +72,7 @@ export default function SellerWarehousesPage() {
       const responseData = await response.json();
       if (!response.ok) throw new Error(responseData.message || 'Failed to fetch warehouses.');
       
-      setWarehouses(responseData.data || []);
+      setWarehouses(responseData.data.content || []);
     } catch (err: any) {
       setError(err.message);
       toast({ variant: "destructive", title: "Error Fetching Warehouses", description: err.message });
@@ -94,7 +94,7 @@ export default function SellerWarehousesPage() {
         });
         const responseData = await response.json();
         if (!response.ok) throw new Error(responseData.message || "Failed to fetch addresses.");
-        setSellerAddresses(responseData.data || []);
+        setSellerAddresses(responseData.data.content || []);
     } catch (err: any) {
         toast({ variant: "destructive", title: "Could not load addresses", description: "Warehouses cannot be created or edited without addresses." });
         setSellerAddresses([]);
