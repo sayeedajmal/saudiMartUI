@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import ProductCard from '@/components/products/product-card';
 import type { ApiProduct } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -23,6 +23,8 @@ interface Category {
 
 export default function ProductListingPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   
   // State for all data
   const [allProducts, setAllProducts] = useState<ApiProduct[]>([]);
@@ -99,6 +101,17 @@ export default function ProductListingPage() {
   useEffect(() => {
     fetchAllProductsForCategory(selectedCategory);
   }, [selectedCategory, fetchAllProductsForCategory]);
+  
+  // New useEffect to update URL when category changes
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (selectedCategory !== 'All') {
+      params.set('category', selectedCategory);
+    }
+    // Use router.replace to update the URL without adding to history
+    router.replace(`${pathname}?${params.toString()}`);
+  }, [selectedCategory, pathname, router]);
+
 
   // This effect handles all client-side filtering and sorting
   useEffect(() => {
@@ -132,7 +145,7 @@ export default function ProductListingPage() {
 
     // Apply sorting
     if (sortBy === 'price,asc') {
-      productsToDisplay.sort((a, b) => (a.basePrice || 0) - (b.basePrice || 0));
+      productsToDisplay.sort((a, b) => (a.basePrice || 0) - (a.basePrice || 0));
     } else if (sortBy === 'price,desc') {
       productsToDisplay.sort((a, b) => (b.basePrice || 0) - (a.basePrice || 0));
     }
