@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import type { ApiProduct, ProductVariant } from '@/lib/types';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -17,17 +16,23 @@ import { useToast } from '@/hooks/use-toast';
 import { API_BASE_URL } from '@/lib/api';
 import { useSelector, useDispatch } from 'react-redux';
 import { selectCurrentProduct, clearSelectedProduct } from '@/lib/redux/slices/productSlice';
+import { selectUser, selectAccessToken, type MyProfile } from '@/lib/redux/slices/userSlice';
+
 
 export default function ProductDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const productId = typeof params.slug === 'string' ? params.slug : '';
   const { toast } = useToast();
   const dispatch = useDispatch();
 
   const productFromState = useSelector(selectCurrentProduct);
+  const currentUser = useSelector(selectUser) as MyProfile | null;
+  const accessToken = useSelector(selectAccessToken);
 
   const [product, setProduct] = useState<ApiProduct | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
@@ -53,7 +58,7 @@ export default function ProductDetailPage() {
   }, []);
   
   useEffect(() => {
-    if (productFromState && productFromState.id === productId) {
+    if (productFromState && productFromState.id.toString() === productId) {
       setProduct(productFromState);
       setIsLoading(false);
     } else {
@@ -82,11 +87,8 @@ export default function ProductDetailPage() {
     setSelectedImageIndex(0);
   }, [selectedVariant]);
 
-  const handleVariantChange = (variantId: string) => {
-    const newVariant = product?.variants.find(v => v.id === variantId);
-    if (newVariant) {
-      setSelectedVariant(newVariant);
-    }
+  const handleVariantChange = (variant: ProductVariant) => {
+    setSelectedVariant(variant);
   };
 
   const handleQuantityChange = (amount: number) => {
@@ -94,13 +96,92 @@ export default function ProductDetailPage() {
     setQuantity(prev => Math.max(moq, prev + amount));
   };
 
-  const handleAddToCart = () => {
-    console.log("Add to cart:", product?.name, quantity, selectedVariant?.variantName);
-    toast({
-      title: "Added to Quote Cart (Placeholder)",
-      description: `${product?.name} (Qty: ${quantity}) has been added to your quote cart.`,
-    });
+  const handleAddToCart = async () => {
+    if (!currentUser || !accessToken) {
+      toast({
+        variant: 'destructive',
+        title: 'Please Log In',
+        description: 'You must be logged in as a buyer to request a quote.',
+      });
+      router.push('/auth/login?redirect=/products/' + productId);
+      return;
+    }
+
+    if (currentUser.role !== 'BUYER') {
+      toast({
+        variant: 'destructive',
+        title: 'Action Not Allowed',
+        description: 'Only buyers can add items to a quote cart.',
+      });
+      return;
+    }
+
+    if (!product || !selectedVariant) {
+      toast({
+        variant: 'destructive',
+        title: 'Selection Missing',
+        description: 'Please select a product variant before adding to the quote cart.',
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    const quotedPrice = selectedVariant.basePrice || product.basePrice || 0;
+    const totalPrice = quantity * quotedPrice;
+    const validUntilDate = new Date();
+    validUntilDate.setDate(validUntilDate.getDate() + 30);
+
+    const payload = {
+      quote: {
+        buyer: { id: currentUser.id },
+        seller: { id: product.seller.id },
+        status: 'DRAFT',
+        validUntil: validUntilDate.toISOString().split('T')[0],
+        subtotal: totalPrice,
+        taxAmount: 0.00,
+        totalAmount: totalPrice,
+        notes: `Quote initiated from product page for "${product.name}".`,
+      },
+      product: { id: product.id },
+      variant: { id: selectedVariant.id },
+      quantity: quantity,
+      quotedPrice: quotedPrice,
+      discountPercent: 0.00,
+      totalPrice: totalPrice,
+    };
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/quoteitems`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const responseData = await response.json();
+      if (!response.ok) {
+        throw new Error(responseData.message || 'Failed to add item to quote.');
+      }
+      
+      toast({
+        title: 'Item Added to Quote!',
+        description: `${product.name} (${quantity} units) has been added to your draft quote.`,
+      });
+
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: err.message,
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+
 
   const handleSendInquiry = () => {
     console.log("Send inquiry:", product?.name, quantity, selectedVariant?.variantName);
@@ -110,7 +191,7 @@ export default function ProductDetailPage() {
     });
   };
 
-  const imagesToShow = selectedVariant?.images || [];
+  const imagesToShow = selectedVariant?.images || product?.variants?.[0]?.images || [];
 
   const nextImage = () => setSelectedImageIndex(prev => (prev + 1) % imagesToShow.length);
   const prevImage = () => setSelectedImageIndex(prev => (prev - 1 + imagesToShow.length) % imagesToShow.length);
@@ -155,8 +236,8 @@ export default function ProductDetailPage() {
                 key={imagesToShow[selectedImageIndex]?.id}
                 src={imagesToShow[selectedImageIndex]?.imageUrl}
                 alt={imagesToShow[selectedImageIndex]?.altText || `${product.name} - Image ${selectedImageIndex + 1}`}
-                layout="fill"
-                objectFit="contain"
+                fill
+                className="object-contain"
                 data-ai-hint={product.category?.name.toLowerCase() || 'product'}
               />
             ) : <div className="bg-muted h-full w-full flex items-center justify-center">No Image</div>}
@@ -177,7 +258,7 @@ export default function ProductDetailPage() {
                   className={`relative aspect-square rounded-md overflow-hidden border-2 ${selectedImageIndex === index ? 'border-primary' : 'border-transparent'
                     } hover:border-primary/50 transition-all`}
                 >
-                  <Image src={img.imageUrl} alt={img.altText || `Thumbnail ${index + 1}`} layout="fill" objectFit="cover" />
+                  <Image src={img.imageUrl} alt={img.altText || `Thumbnail ${index + 1}`} fill className="object-cover" />
                 </button>
               ))}
             </div>
@@ -200,7 +281,7 @@ export default function ProductDetailPage() {
             <p className="text-muted-foreground whitespace-pre-line text-sm mb-6">{product.description}</p>
             <Separator className="mb-6" />
 
-            {product.variants && product.variants.length > 1 && (
+            {product.variants && product.variants.length > 0 && (
               <div className="space-y-2 mb-6">
                 <Label className="text-sm font-medium">Variant</Label>
                 <div className="flex flex-wrap gap-2">
@@ -208,7 +289,7 @@ export default function ProductDetailPage() {
                     <Button
                       key={variant.id}
                       variant={selectedVariant?.id === variant.id ? 'default' : 'outline'}
-                      onClick={() => handleVariantChange(variant.id)}
+                      onClick={() => handleVariantChange(variant)}
                     >
                       {variant.variantName || variant.sku}
                     </Button>
@@ -235,7 +316,17 @@ export default function ProductDetailPage() {
 
           </CardContent>
           <CardFooter className="flex flex-col sm:flex-row gap-3">
-            <Button size="lg" className="w-full sm:flex-1 bg-accent text-accent-foreground hover:bg-accent/90" onClick={handleAddToCart} disabled={!product.available}> <ShoppingCart className="mr-2 h-5 w-5" /> Add to Quote Cart </Button>
+            <Button size="lg" className="w-full sm:flex-1 bg-accent text-accent-foreground hover:bg-accent/90" onClick={handleAddToCart} disabled={!product.available || isSubmitting}>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Adding...
+                </>
+              ) : (
+                <>
+                  <ShoppingCart className="mr-2 h-5 w-5" /> Add to Quote Cart
+                </>
+              )}
+            </Button>
             <Button variant="outline" size="lg" className="w-full sm:flex-1" onClick={handleSendInquiry}> <Send className="mr-2 h-5 w-5" /> Send Inquiry </Button>
           </CardFooter>
         </Card>
