@@ -15,11 +15,16 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { API_BASE_URL } from '@/lib/api';
+import { useSelector, useDispatch } from 'react-redux';
+import { selectCurrentProduct, clearSelectedProduct } from '@/lib/redux/slices/productSlice';
 
 export default function ProductDetailPage() {
   const params = useParams();
   const productId = typeof params.slug === 'string' ? params.slug : '';
   const { toast } = useToast();
+  const dispatch = useDispatch();
+
+  const productFromState = useSelector(selectCurrentProduct);
 
   const [product, setProduct] = useState<ApiProduct | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -29,39 +34,51 @@ export default function ProductDetailPage() {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
 
-  const fetchProduct = useCallback(async () => {
-    if (!productId) {
-      setError("Product ID is missing.");
-      setIsLoading(false);
-      return;
-    }
+  const fetchProduct = useCallback(async (id: string) => {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch(`${API_BASE_URL}/products/${productId}`);
+      const response = await fetch(`${API_BASE_URL}/products/${id}`);
       const responseData = await response.json();
       if (!response.ok) {
         throw new Error(responseData.message || "Failed to fetch product.");
       }
       setProduct(responseData.data);
-      if (responseData.data?.variants?.length > 0) {
-        setSelectedVariant(responseData.data.variants[0]);
-        setQuantity(responseData.data.minimumOrderQuantity || 1);
-      }
     } catch (err: any) {
       setError(err.message);
       setProduct(null);
     } finally {
       setIsLoading(false);
     }
-  }, [productId]);
+  }, []);
+  
+  useEffect(() => {
+    if (productFromState && productFromState.id === productId) {
+      setProduct(productFromState);
+      setIsLoading(false);
+    } else {
+      if (productId) {
+        fetchProduct(productId);
+      }
+    }
+    
+    return () => {
+      dispatch(clearSelectedProduct());
+    };
+  }, [productId, productFromState, fetchProduct, dispatch]);
+
 
   useEffect(() => {
-    fetchProduct();
-  }, [fetchProduct]);
+    if (product) {
+       if (product.variants?.length > 0) {
+        setSelectedVariant(product.variants[0]);
+        setQuantity(product.minimumOrderQuantity || 1);
+      }
+       setSelectedImageIndex(0);
+    }
+  }, [product]);
 
   useEffect(() => {
-    // When selected variant changes, reset image index
     setSelectedImageIndex(0);
   }, [selectedVariant]);
 
@@ -180,7 +197,6 @@ export default function ProductDetailPage() {
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-semibold text-primary mb-4">${selectedVariant?.basePrice?.toFixed(2) || product.basePrice?.toFixed(2) || 'N/A'}</p>
-
             <p className="text-muted-foreground whitespace-pre-line text-sm mb-6">{product.description}</p>
             <Separator className="mb-6" />
 
