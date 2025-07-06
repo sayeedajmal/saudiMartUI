@@ -93,7 +93,7 @@ export default function BuyerQuoteRequestsPage() {
 
   // State for withdrawal
   const [isWithdrawing, setIsWithdrawing] = useState(false);
-  const [quoteToWithdraw, setQuoteToWithdraw] = useState<BuyerQuote | null>(null);
+  const [itemToWithdraw, setItemToWithdraw] = useState<QuoteItemDetail | null>(null);
 
   const fetchQuotes = useCallback(async () => {
     if (!currentUser || !accessToken) {
@@ -166,18 +166,18 @@ export default function BuyerQuoteRequestsPage() {
     setSelectedQuoteDetails(null);
   };
   
-  const handleWithdrawClick = (quote: BuyerQuote) => {
-    setQuoteToWithdraw(quote);
+  const handleWithdrawClick = (item: QuoteItemDetail) => {
+    setItemToWithdraw(item);
   };
 
   const confirmWithdraw = async () => {
-    if (!quoteToWithdraw || !accessToken) {
-        toast({ variant: "destructive", title: "Error", description: "Quote or authentication token not found." });
+    if (!itemToWithdraw || !accessToken) {
+        toast({ variant: "destructive", title: "Error", description: "Quote item or authentication token not found." });
         return;
     }
     setIsWithdrawing(true);
     try {
-        const response = await fetch(`${API_BASE_URL}/quotes/${quoteToWithdraw.id}`, {
+        const response = await fetch(`${API_BASE_URL}/quoteitems/${itemToWithdraw.id}`, {
             method: 'DELETE',
             headers: { 'Authorization': `Bearer ${accessToken}` },
         });
@@ -187,14 +187,15 @@ export default function BuyerQuoteRequestsPage() {
             throw new Error(responseData.message || "An unknown error occurred.");
         }
         
-        toast({ title: "Quote Withdrawn", description: `Quote #${quoteToWithdraw.quoteNumber} has been successfully withdrawn.` });
+        toast({ title: "Quote Withdrawn", description: `Quote #${itemToWithdraw.quote.quoteNumber} has been successfully withdrawn.` });
 
+        setIsModalOpen(false);
         fetchQuotes();
     } catch (err: any) {
         toast({ variant: "destructive", title: "Withdrawal Failed", description: err.message });
     } finally {
         setIsWithdrawing(false);
-        setQuoteToWithdraw(null);
+        setItemToWithdraw(null);
     }
   };
 
@@ -275,7 +276,14 @@ export default function BuyerQuoteRequestsPage() {
                 </>
             )}
         </div>
-        <DialogFooter className="pt-4">
+        <DialogFooter className="pt-4 mt-4 border-t flex-col-reverse sm:flex-row sm:justify-between sm:items-center">
+            {quoteInfo.status === 'DRAFT' ? (
+                <Button variant="destructive" onClick={() => handleWithdrawClick(selectedQuoteDetails[0])} disabled={isWithdrawing}>
+                    <Trash2 className="mr-2 h-4 w-4" /> Withdraw Quote
+                </Button>
+            ) : (
+                <div></div> // Placeholder to keep Close button on the right
+            )}
             <Button variant="outline" onClick={handleCloseModal}>Close</Button>
         </DialogFooter>
       </>
@@ -391,16 +399,10 @@ export default function BuyerQuoteRequestsPage() {
                               {quote.status.replace(/_/g, ' ')}
                             </Badge>
                           </TableCell>
-                          <TableCell className="text-right space-x-2">
+                          <TableCell className="text-right">
                             <Button variant="outline" size="sm" onClick={() => handleViewDetails(quote)}>
                               View Details
                             </Button>
-                            {quote.status === 'DRAFT' && (
-                              <Button variant="destructive" size="sm" onClick={() => handleWithdrawClick(quote)} disabled={isWithdrawing}>
-                                <Trash2 className="mr-1 h-3 w-3" />
-                                Withdraw
-                              </Button>
-                            )}
                           </TableCell>
                         </TableRow>
                       ))}
@@ -427,17 +429,17 @@ export default function BuyerQuoteRequestsPage() {
       </Dialog>
       
       {/* Withdraw Confirmation Dialog */}
-      {quoteToWithdraw && (
-        <AlertDialog open={!!quoteToWithdraw} onOpenChange={() => setQuoteToWithdraw(null)}>
+      {itemToWithdraw && (
+        <AlertDialog open={!!itemToWithdraw} onOpenChange={() => setItemToWithdraw(null)}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Are you sure you want to withdraw this quote?</AlertDialogTitle>
               <AlertDialogDescription>
-                This will permanently delete quote #{quoteToWithdraw.quoteNumber}. This action cannot be undone.
+                This action cannot be undone. This will permanently withdraw quote #{itemToWithdraw.quote.quoteNumber}.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => setQuoteToWithdraw(null)} disabled={isWithdrawing}>Cancel</AlertDialogCancel>
+              <AlertDialogCancel onClick={() => setItemToWithdraw(null)} disabled={isWithdrawing}>Cancel</AlertDialogCancel>
               <AlertDialogAction onClick={confirmWithdraw} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={isWithdrawing}>
                 {isWithdrawing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                 Yes, Withdraw
