@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -23,7 +22,7 @@ const buyerDashboardCards = [
   { title: "Pending Orders", value: "3", icon: ShoppingCart, href: "#", color: "text-blue-500" },
   { title: "Saved Products", value: "15", icon: Heart, href: "#", color: "text-red-500" },
   { title: "Unread Messages", value: "5", icon: MessageCircle, href: "/buyer/dashboard/my-enquiries", color: "text-green-500" },
-  { title: "Active Quotes", value: "2", icon: FileText, href: "#", color: "text-yellow-500" },
+  { title: "Active Quotes", value: "2", icon: FileText, href: "/buyer/dashboard/quote-requests", color: "text-yellow-500" },
 ];
 
 export default function BuyerDashboardPage() {
@@ -64,7 +63,7 @@ export default function BuyerDashboardPage() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton href="#" tooltip="Quote Requests">
+                <SidebarMenuButton href="/buyer/dashboard/quote-requests" tooltip="Quote Requests">
                   <FileText />
                   <span>Quote Requests</span>
                 </SidebarMenuButton>

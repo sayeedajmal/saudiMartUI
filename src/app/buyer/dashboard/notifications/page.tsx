@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -62,7 +61,7 @@ export default function BuyerNotificationsPage() {
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <SidebarMenuButton href="#" tooltip="Quote Requests">
+              <SidebarMenuButton href="/buyer/dashboard/quote-requests" tooltip="Quote Requests">
                 <FileText />
                 <span>Quote Requests</span>
               </SidebarMenuButton>
