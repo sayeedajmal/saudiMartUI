@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
@@ -130,29 +131,30 @@ export default function ProductDetailPage() {
     const quotedPrice = selectedVariant.basePrice || product.basePrice || 0;
     const totalPrice = quantity * quotedPrice;
     const validUntilDate = new Date();
-    validUntilDate.setDate(validUntilDate.getDate() + 30);
+    validUntilDate.setDate(validUntilDate.getDate() + 30); // Quote valid for 30 days
 
     const payload = {
-      quote: {
-        buyer: { id: currentUser.id },
-        seller: { id: product.seller.id },
-        status: 'DRAFT',
-        validUntil: validUntilDate.toISOString().split('T')[0],
-        subtotal: totalPrice,
-        taxAmount: 0.00,
-        totalAmount: totalPrice,
-        notes: `Quote initiated from product page for "${product.name}".`,
+      buyer: { id: currentUser.id },
+      seller: { id: product.seller.id },
+      quoteItem: {
+        product: { id: product.id },
+        variant: { id: selectedVariant.id },
+        quantity: quantity,
+        quotedPrice: quotedPrice,
+        discountPercent: 0.00,
+        totalPrice: totalPrice,
       },
-      product: { id: product.id },
-      variant: { id: selectedVariant.id },
-      quantity: quantity,
-      quotedPrice: quotedPrice,
-      discountPercent: 0.00,
-      totalPrice: totalPrice,
+      validUntil: validUntilDate.toISOString(),
+      subtotal: totalPrice,
+      taxAmount: 0.00,
+      totalAmount: totalPrice,
+      paymentTerms: "CASH",
+      deliveryTerms: "CASH ON DELIVERY",
+      note: `Quote initiated from product page for "${product.name}".`,
     };
     
     try {
-      const response = await fetch(`${API_BASE_URL}/quoteitems`, {
+      const response = await fetch(`${API_BASE_URL}/quotes`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -169,6 +171,11 @@ export default function ProductDetailPage() {
       toast({
         title: 'Item Added to Quote!',
         description: `${product.name} (${quantity} units) has been added to your draft quote.`,
+        action: (
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/buyer/dashboard/quote-requests">View Quotes</Link>
+          </Button>
+        ),
       });
 
     } catch (err: any) {
