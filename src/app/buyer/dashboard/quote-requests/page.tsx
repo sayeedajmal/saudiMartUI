@@ -15,7 +15,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { LayoutDashboard, ShoppingCart, Heart, MessageCircle, FileText, Bell, Settings, MapPin, Loader2, Package, Tag, ReceiptText } from "lucide-react";
+import { LayoutDashboard, ShoppingCart, Heart, MessageCircle, FileText, Bell, Settings, MapPin, Loader2, Package, Tag, ReceiptText, Trash2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +25,7 @@ import { useToast } from '@/hooks/use-toast';
 import { selectUser, selectAccessToken, type MyProfile } from '@/lib/redux/slices/userSlice';
 import { API_BASE_URL } from '@/lib/api';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Separator } from '@/components/ui/separator';
 
 type QuoteStatus = 'DRAFT' | 'SENT' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED';
@@ -56,6 +57,10 @@ interface QuoteItemDetail {
   variant: {
     id: string;
     variantName: string | null;
+    images: {
+      id: string;
+      imageUrl: string;
+    }[];
   };
   quantity: number;
   quotedPrice: number;
@@ -86,6 +91,9 @@ export default function BuyerQuoteRequestsPage() {
   const [selectedQuoteDetails, setSelectedQuoteDetails] = useState<QuoteItemDetail[] | null>(null);
   const [isFetchingDetails, setIsFetchingDetails] = useState(false);
 
+  // State for withdrawal
+  const [isWithdrawing, setIsWithdrawing] = useState(false);
+  const [quoteToWithdraw, setQuoteToWithdraw] = useState<BuyerQuote | null>(null);
 
   const fetchQuotes = useCallback(async () => {
     if (!currentUser || !accessToken) {
@@ -127,14 +135,13 @@ export default function BuyerQuoteRequestsPage() {
     }
     
     try {
-      // API expects a POST with the quote ID to get items
       const response = await fetch(`${API_BASE_URL}/quoteitems/quote`, {
         method: 'POST',
         headers: { 
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${accessToken}` 
         },
-        body: JSON.stringify({ id: quote.id, buyer: { id: currentUser?.id } })
+        body: JSON.stringify({ id: quote.id})
       });
 
       const responseData = await response.json();
@@ -157,6 +164,38 @@ export default function BuyerQuoteRequestsPage() {
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setSelectedQuoteDetails(null);
+  };
+  
+  const handleWithdrawClick = (quote: BuyerQuote) => {
+    setQuoteToWithdraw(quote);
+  };
+
+  const confirmWithdraw = async () => {
+    if (!quoteToWithdraw || !accessToken) {
+        toast({ variant: "destructive", title: "Error", description: "Quote or authentication token not found." });
+        return;
+    }
+    setIsWithdrawing(true);
+    try {
+        const response = await fetch(`${API_BASE_URL}/quotes/${quoteToWithdraw.id}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${accessToken}` },
+        });
+
+        if (!response.ok) {
+            const responseData = await response.json().catch(() => ({ message: "Failed to withdraw quote."}));
+            throw new Error(responseData.message || "An unknown error occurred.");
+        }
+        
+        toast({ title: "Quote Withdrawn", description: `Quote #${quoteToWithdraw.quoteNumber} has been successfully withdrawn.` });
+
+        fetchQuotes();
+    } catch (err: any) {
+        toast({ variant: "destructive", title: "Withdrawal Failed", description: err.message });
+    } finally {
+        setIsWithdrawing(false);
+        setQuoteToWithdraw(null);
+    }
   };
 
   const renderModalContent = () => {
@@ -191,6 +230,7 @@ export default function BuyerQuoteRequestsPage() {
             <Table>
                 <TableHeader>
                     <TableRow>
+                        <TableHead>Image</TableHead>
                         <TableHead>Product</TableHead>
                         <TableHead>Variant</TableHead>
                         <TableHead className="text-right">Qty</TableHead>
@@ -201,6 +241,13 @@ export default function BuyerQuoteRequestsPage() {
                 <TableBody>
                     {selectedQuoteDetails.map(item => (
                         <TableRow key={item.id}>
+                            <TableCell>
+                              {item.variant.images && item.variant.images.length > 0 ? (
+                                <img src={item.variant.images[0].imageUrl} alt={item.product.name} className="w-10 h-10 object-cover rounded" />
+                              ) : (
+                                <span className="text-muted-foreground text-sm">No Image</span>
+                              )}
+                            </TableCell>
                             <TableCell>{item.product.name}</TableCell>
                             <TableCell>{item.variant.variantName || 'N/A'}</TableCell>
                             <TableCell className="text-right">{item.quantity}</TableCell>
@@ -344,10 +391,16 @@ export default function BuyerQuoteRequestsPage() {
                               {quote.status.replace(/_/g, ' ')}
                             </Badge>
                           </TableCell>
-                          <TableCell className="text-right">
+                          <TableCell className="text-right space-x-2">
                             <Button variant="outline" size="sm" onClick={() => handleViewDetails(quote)}>
                               View Details
                             </Button>
+                            {quote.status === 'DRAFT' && (
+                              <Button variant="destructive" size="sm" onClick={() => handleWithdrawClick(quote)} disabled={isWithdrawing}>
+                                <Trash2 className="mr-1 h-3 w-3" />
+                                Withdraw
+                              </Button>
+                            )}
                           </TableCell>
                         </TableRow>
                       ))}
@@ -372,6 +425,27 @@ export default function BuyerQuoteRequestsPage() {
           {renderModalContent()}
         </DialogContent>
       </Dialog>
+      
+      {/* Withdraw Confirmation Dialog */}
+      {quoteToWithdraw && (
+        <AlertDialog open={!!quoteToWithdraw} onOpenChange={() => setQuoteToWithdraw(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you sure you want to withdraw this quote?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently delete quote #{quoteToWithdraw.quoteNumber}. This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setQuoteToWithdraw(null)} disabled={isWithdrawing}>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmWithdraw} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={isWithdrawing}>
+                {isWithdrawing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Yes, Withdraw
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </>
   );
 }
