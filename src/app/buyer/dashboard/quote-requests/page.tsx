@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -14,7 +15,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { LayoutDashboard, ShoppingCart, Heart, MessageCircle, FileText, Bell, Settings, MapPin, Loader2 } from "lucide-react";
+import { LayoutDashboard, ShoppingCart, Heart, MessageCircle, FileText, Bell, Settings, MapPin, Loader2, Package, Tag, ReceiptText } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +24,8 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { selectUser, selectAccessToken, type MyProfile } from '@/lib/redux/slices/userSlice';
 import { API_BASE_URL } from '@/lib/api';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Separator } from '@/components/ui/separator';
 
 type QuoteStatus = 'DRAFT' | 'SENT' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED';
 
@@ -30,13 +33,35 @@ interface BuyerQuote {
   id: string;
   quoteNumber: string;
   seller: {
+    id?: string; // Optional for list view
     name: string;
   };
   createdAt: string;
   validUntil: string;
   totalAmount: number;
   status: QuoteStatus;
+  notes?: string | null;
+  subtotal?: number;
+  taxAmount?: number;
 }
+
+// Type for the detailed quote item response
+interface QuoteItemDetail {
+  id: string; // quote item id
+  quote: BuyerQuote;
+  product: {
+    id: string;
+    name: string;
+  };
+  variant: {
+    id: string;
+    variantName: string | null;
+  };
+  quantity: number;
+  quotedPrice: number;
+  totalPrice: number;
+}
+
 
 const getStatusBadgeVariant = (status: QuoteStatus) => {
   switch (status) {
@@ -55,6 +80,12 @@ export default function BuyerQuoteRequestsPage() {
   const { toast } = useToast();
   const currentUser = useSelector(selectUser) as MyProfile | null;
   const accessToken = useSelector(selectAccessToken);
+
+  // State for the modal
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedQuoteDetails, setSelectedQuoteDetails] = useState<QuoteItemDetail[] | null>(null);
+  const [isFetchingDetails, setIsFetchingDetails] = useState(false);
+
 
   const fetchQuotes = useCallback(async () => {
     if (!currentUser || !accessToken) {
@@ -85,133 +116,262 @@ export default function BuyerQuoteRequestsPage() {
     fetchQuotes();
   }, [fetchQuotes]);
 
-  return (
-    <SidebarProvider>
-      <Sidebar collapsible="icon" className="shadow-lg">
-        <SidebarHeader className="p-4 justify-between items-center flex">
-          <Link href="/" className="flex items-center gap-2 group-data-[collapsible=icon]:hidden">
-            <h2 className="font-headline text-lg font-semibold text-sidebar-primary">SaudiMart</h2>
-          </Link>
-        </SidebarHeader>
-        <ScrollArea className="flex-1">
-          <SidebarContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton href="/buyer/dashboard" tooltip="Dashboard">
-                  <LayoutDashboard />
-                  <span>Dashboard</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton href="#" tooltip="My Orders">
-                  <ShoppingCart />
-                  <span>My Orders</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton href="#" tooltip="Saved Products">
-                  <Heart />
-                  <span>Saved Products</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton href="/buyer/dashboard/my-enquiries" tooltip="My Enquiries">
-                  <MessageCircle />
-                  <span>My Enquiries</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton href="/buyer/dashboard/quote-requests" isActive tooltip="Quote Requests">
-                  <FileText />
-                  <span>Quote Requests</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton href="/buyer/dashboard/addresses" tooltip="My Addresses">
-                  <MapPin />
-                  <span>My Addresses</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton href="/buyer/dashboard/notifications" tooltip="Notifications">
-                  <Bell />
-                  <span>Notifications</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton href="#" tooltip="Settings">
-                  <Settings />
-                  <span>Settings</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarContent>
-        </ScrollArea>
-      </Sidebar>
-      <SidebarInset>
-        <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6 py-4">
-            <SidebarTrigger className="lg:hidden" />
-            <h1 className="font-headline text-2xl font-semibold">My Quote Requests</h1>
-        </header>
-        <main className="flex-1 p-6">
-          <Card className="shadow-md">
-            <CardHeader>
-              <CardTitle className="font-headline">Your Quotes</CardTitle>
-              <CardDescription>Track the status of quotes you have requested or received.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <div className="flex justify-center items-center py-8">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                  <p className="ml-2 text-muted-foreground">Loading your quotes...</p>
-                </div>
-              ) : error ? (
-                <p className="text-destructive text-center py-8">{error}</p>
-              ) : quotes.length > 0 ? (
-                <Table>
-                  <TableHeader>
+  const handleViewDetails = async (quote: BuyerQuote) => {
+    setIsModalOpen(true);
+    setIsFetchingDetails(true);
+    setSelectedQuoteDetails(null);
+    if (!accessToken) {
+        toast({ variant: "destructive", title: "Error", description: "Authentication token not found." });
+        setIsFetchingDetails(false);
+        return;
+    }
+    
+    try {
+      // API expects a POST with the quote ID to get items
+      const response = await fetch(`${API_BASE_URL}/quoteitems/quote`, {
+        method: 'POST',
+        headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}` 
+        },
+        body: JSON.stringify({ id: quote.id, buyer: { id: currentUser?.id } })
+      });
+
+      const responseData = await response.json();
+      if (!response.ok) {
+        throw new Error(responseData.message || "Failed to fetch quote details.");
+      }
+
+      // Handle both array and single object responses for safety
+      const details = Array.isArray(responseData.data) ? responseData.data : [responseData.data];
+      setSelectedQuoteDetails(details);
+
+    } catch(err: any) {
+      toast({ variant: "destructive", title: "Error Fetching Details", description: err.message });
+      // Don't close modal on error, show error inside
+    } finally {
+      setIsFetchingDetails(false);
+    }
+  };
+  
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedQuoteDetails(null);
+  };
+
+  const renderModalContent = () => {
+    if (isFetchingDetails) {
+      return (
+        <div className="flex justify-center items-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="ml-2 text-muted-foreground">Loading details...</p>
+        </div>
+      );
+    }
+
+    if (!selectedQuoteDetails || selectedQuoteDetails.length === 0) {
+      return <p className="text-destructive text-center py-12">Could not load quote details.</p>;
+    }
+
+    const quoteInfo = selectedQuoteDetails[0].quote;
+
+    return (
+      <>
+        <DialogHeader className="mb-4">
+          <DialogTitle className="font-headline text-2xl">Quote #{quoteInfo.quoteNumber}</DialogTitle>
+          <DialogDescription>
+            From Seller: <span className="font-medium text-foreground">{quoteInfo.seller.name}</span>
+            <br/>
+            Status: <Badge variant={getStatusBadgeVariant(quoteInfo.status)} className={quoteInfo.status === 'ACCEPTED' ? 'bg-green-500 hover:bg-green-600 text-white' : ''}>{quoteInfo.status.replace(/_/g, ' ')}</Badge>
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+            <h3 className="font-semibold text-foreground flex items-center"><Package className="mr-2 h-4 w-4 text-primary" /> Items</h3>
+            <Table>
+                <TableHeader>
                     <TableRow>
-                      <TableHead>Quote #</TableHead>
-                      <TableHead>Seller</TableHead>
-                      <TableHead>Created</TableHead>
-                      <TableHead>Total</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
+                        <TableHead>Product</TableHead>
+                        <TableHead>Variant</TableHead>
+                        <TableHead className="text-right">Qty</TableHead>
+                        <TableHead className="text-right">Unit Price</TableHead>
+                        <TableHead className="text-right">Total</TableHead>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {quotes.map((quote) => (
-                      <TableRow key={quote.id}>
-                        <TableCell className="font-medium">{quote.quoteNumber}</TableCell>
-                        <TableCell>{quote.seller.name}</TableCell>
-                        <TableCell>{new Date(quote.createdAt).toLocaleDateString()}</TableCell>
-                        <TableCell>${quote.totalAmount.toFixed(2)}</TableCell>
-                        <TableCell>
-                          <Badge variant={getStatusBadgeVariant(quote.status)}
-                                 className={quote.status === 'ACCEPTED' ? 'bg-green-500 hover:bg-green-600 text-white' : ''}>
-                            {quote.status.replace(/_/g, ' ')}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button variant="outline" size="sm" asChild>
-                            <Link href={`#`}>View Details</Link>
-                          </Button>
-                        </TableCell>
-                      </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {selectedQuoteDetails.map(item => (
+                        <TableRow key={item.id}>
+                            <TableCell>{item.product.name}</TableCell>
+                            <TableCell>{item.variant.variantName || 'N/A'}</TableCell>
+                            <TableCell className="text-right">{item.quantity}</TableCell>
+                            <TableCell className="text-right">${item.quotedPrice.toFixed(2)}</TableCell>
+                            <TableCell className="text-right">${item.totalPrice.toFixed(2)}</TableCell>
+                        </TableRow>
                     ))}
-                  </TableBody>
-                </Table>
-              ) : (
-                <div className="text-center py-10">
-                    <FileText className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                    <p className="text-xl font-semibold text-muted-foreground">No quotes found.</p>
-                    <p className="text-sm text-muted-foreground mt-2">You have not requested any quotes yet.</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </main>
-      </SidebarInset>
-    </SidebarProvider>
+                </TableBody>
+            </Table>
+
+            <Separator />
+            
+            <h3 className="font-semibold text-foreground flex items-center"><ReceiptText className="mr-2 h-4 w-4 text-primary"/>Summary</h3>
+            <div className="space-y-1 text-sm text-right w-full sm:w-1/2 ml-auto">
+                <div className="flex justify-between"><span>Subtotal:</span><span>${quoteInfo.subtotal?.toFixed(2) || '0.00'}</span></div>
+                <div className="flex justify-between"><span>Tax:</span><span>${quoteInfo.taxAmount?.toFixed(2) || '0.00'}</span></div>
+                <div className="flex justify-between font-bold text-base"><span>Total:</span><span>${quoteInfo.totalAmount.toFixed(2)}</span></div>
+            </div>
+
+            {quoteInfo.notes && (
+                <>
+                    <Separator />
+                    <h3 className="font-semibold text-foreground flex items-center"><Tag className="mr-2 h-4 w-4 text-primary"/>Seller Notes</h3>
+                    <p className="text-sm text-muted-foreground p-3 bg-muted rounded-md">{quoteInfo.notes}</p>
+                </>
+            )}
+        </div>
+        <DialogFooter className="pt-4">
+            <Button variant="outline" onClick={handleCloseModal}>Close</Button>
+        </DialogFooter>
+      </>
+    );
+  };
+
+
+  return (
+    <>
+      <SidebarProvider>
+        <Sidebar collapsible="icon" className="shadow-lg">
+          <SidebarHeader className="p-4 justify-between items-center flex">
+            <Link href="/" className="flex items-center gap-2 group-data-[collapsible=icon]:hidden">
+              <h2 className="font-headline text-lg font-semibold text-sidebar-primary">SaudiMart</h2>
+            </Link>
+          </SidebarHeader>
+          <ScrollArea className="flex-1">
+            <SidebarContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton href="/buyer/dashboard" tooltip="Dashboard">
+                    <LayoutDashboard />
+                    <span>Dashboard</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton href="#" tooltip="My Orders">
+                    <ShoppingCart />
+                    <span>My Orders</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton href="#" tooltip="Saved Products">
+                    <Heart />
+                    <span>Saved Products</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton href="/buyer/dashboard/my-enquiries" tooltip="My Enquiries">
+                    <MessageCircle />
+                    <span>My Enquiries</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton href="/buyer/dashboard/quote-requests" isActive tooltip="Quote Requests">
+                    <FileText />
+                    <span>Quote Requests</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton href="/buyer/dashboard/addresses" tooltip="My Addresses">
+                    <MapPin />
+                    <span>My Addresses</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton href="/buyer/dashboard/notifications" tooltip="Notifications">
+                    <Bell />
+                    <span>Notifications</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton href="#" tooltip="Settings">
+                    <Settings />
+                    <span>Settings</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarContent>
+          </ScrollArea>
+        </Sidebar>
+        <SidebarInset>
+          <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6 py-4">
+              <SidebarTrigger className="lg:hidden" />
+              <h1 className="font-headline text-2xl font-semibold">My Quote Requests</h1>
+          </header>
+          <main className="flex-1 p-6">
+            <Card className="shadow-md">
+              <CardHeader>
+                <CardTitle className="font-headline">Your Quotes</CardTitle>
+                <CardDescription>Track the status of quotes you have requested or received.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <div className="flex justify-center items-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    <p className="ml-2 text-muted-foreground">Loading your quotes...</p>
+                  </div>
+                ) : error ? (
+                  <p className="text-destructive text-center py-8">{error}</p>
+                ) : quotes.length > 0 ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Quote #</TableHead>
+                        <TableHead>Seller</TableHead>
+                        <TableHead>Created</TableHead>
+                        <TableHead>Total</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {quotes.map((quote) => (
+                        <TableRow key={quote.id}>
+                          <TableCell className="font-medium">{quote.quoteNumber}</TableCell>
+                          <TableCell>{quote.seller.name}</TableCell>
+                          <TableCell>{new Date(quote.createdAt).toLocaleDateString()}</TableCell>
+                          <TableCell>${quote.totalAmount.toFixed(2)}</TableCell>
+                          <TableCell>
+                            <Badge variant={getStatusBadgeVariant(quote.status)}
+                                  className={quote.status === 'ACCEPTED' ? 'bg-green-500 hover:bg-green-600 text-white' : ''}>
+                              {quote.status.replace(/_/g, ' ')}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button variant="outline" size="sm" onClick={() => handleViewDetails(quote)}>
+                              View Details
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <div className="text-center py-10">
+                      <FileText className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                      <p className="text-xl font-semibold text-muted-foreground">No quotes found.</p>
+                      <p className="text-sm text-muted-foreground mt-2">You have not requested any quotes yet.</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </main>
+        </SidebarInset>
+      </SidebarProvider>
+      
+      {/* Quote Details Modal */}
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="sm:max-w-3xl">
+          {renderModalContent()}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
