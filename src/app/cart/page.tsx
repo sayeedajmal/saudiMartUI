@@ -9,13 +9,12 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { DUMMY_PRODUCTS, type Product } from '@/lib/types';
+import { DUMMY_PRODUCTS, type ApiProduct } from '@/lib/types';
 import { Minus, Plus, Trash2, AlertTriangle, Info, PackageCheck, ChevronLeft } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
-interface CartItem extends Product {
+interface CartItem extends ApiProduct {
   quantity: number;
-  // Potentially add selectedVariants here if needed later
 }
 
 export default function CartPage() {
@@ -26,7 +25,7 @@ export default function CartPage() {
     // Initialize with a few dummy items for demonstration
     const initialCartItems: CartItem[] = DUMMY_PRODUCTS.slice(0, 2).map((product, index) => ({
       ...product,
-      quantity: product.moq + index, // Vary quantities, ensure some meet MOQ
+      quantity: product.minimumOrderQuantity + index,
     }));
     setCartItems(initialCartItems);
   }, []);
@@ -35,7 +34,7 @@ export default function CartPage() {
     setCartItems(prevItems =>
       prevItems.map(item =>
         item.id === id ? { ...item, quantity: Math.max(1, item.quantity + amount) } : item
-      ).filter(item => item.quantity > 0) // Remove if quantity becomes 0 or less
+      ).filter(item => item.quantity > 0)
     );
   };
 
@@ -59,7 +58,7 @@ export default function CartPage() {
   const handleSubmitQuote = () => {
     console.log("Submitting quote for items:", cartItems);
     // Check if all items meet MOQ before submitting
-    const itemsBelowMoq = cartItems.filter(item => item.quantity < item.moq);
+    const itemsBelowMoq = cartItems.filter(item => item.quantity < item.minimumOrderQuantity);
     if (itemsBelowMoq.length > 0) {
         toast({
             variant: "destructive",
@@ -72,11 +71,10 @@ export default function CartPage() {
       title: "Quote Request Submitted (Placeholder)",
       description: "Your quote request has been sent. Sellers will respond soon.",
     });
-    // Potentially clear cart or redirect: setCartItems([]);
   };
 
   const calculateSubtotal = () => {
-    return cartItems.reduce((total, item) => total + item.price * item.quantity, 0);
+    return cartItems.reduce((total, item) => total + (item.basePrice || 0) * item.quantity, 0);
   };
 
   const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
@@ -110,32 +108,34 @@ export default function CartPage() {
       ) : (
         <div className="grid lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-6">
-            {cartItems.map(item => (
+            {cartItems.map(item => {
+              const primaryImage = item.variants?.[0]?.images?.find(img => img.isPrimary) || item.variants?.[0]?.images?.[0];
+              return (
               <Card key={item.id} className="shadow-md overflow-hidden">
                 <div className="flex p-4 gap-4">
                   <div className="relative h-24 w-24 sm:h-32 sm:w-32 rounded-md overflow-hidden border">
                     <Image
-                      src={item.imageUrl}
-                      alt={item.name}
+                      src={primaryImage?.imageUrl || 'https://placehold.co/600x400.png'}
+                      alt={primaryImage?.altText || item.name}
                       layout="fill"
                       objectFit="cover"
-                      data-ai-hint={item.dataAiHint || item.category.toLowerCase()}
+                      data-ai-hint={item.category?.name?.toLowerCase()}
                     />
                   </div>
                   <div className="flex-1 flex flex-col justify-between">
                     <div>
-                      <Link href={`/products/${item.slug}`} className="hover:text-primary">
+                      <Link href={`/products/${item.id}`} className="hover:text-primary">
                         <h3 className="font-headline text-lg font-semibold">{item.name}</h3>
                       </Link>
-                      <p className="text-sm text-muted-foreground">{item.category}</p>
-                      <p className="text-sm font-medium text-primary mt-1">${item.price.toFixed(2)} / unit</p>
-                       <p className="text-xs text-muted-foreground mt-0.5">MOQ: {item.moq}</p>
+                      <p className="text-sm text-muted-foreground">{item.category?.name}</p>
+                      <p className="text-sm font-medium text-primary mt-1">${(item.basePrice || 0).toFixed(2)} / unit</p>
+                       <p className="text-xs text-muted-foreground mt-0.5">MOQ: {item.minimumOrderQuantity}</p>
                     </div>
-                     {item.quantity < item.moq && (
+                     {item.quantity < item.minimumOrderQuantity && (
                       <Alert variant="destructive" className="mt-2 p-2 text-xs">
                         <AlertTriangle className="h-4 w-4" />
                         <AlertDescription>
-                          Quantity is below MOQ ({item.moq}).
+                          Quantity is below MOQ ({item.minimumOrderQuantity}).
                         </AlertDescription>
                       </Alert>
                     )}
@@ -153,14 +153,13 @@ export default function CartPage() {
                             if (!isNaN(val) && val > 0) {
                                 handleInputChange(item.id, val);
                             } else if (e.target.value === '') {
-                                // Allow temporary empty state, re-validate on blur or keep as 1
                                 handleInputChange(item.id, 1);
                             }
                         }}
                         onBlur={(e) => {
                             const val = parseInt(e.target.value);
                             if (isNaN(val) || val < 1) {
-                                handleInputChange(item.id, 1); // Reset to 1 if invalid on blur
+                                handleInputChange(item.id, 1);
                             }
                         }}
                         className="w-16 h-8 text-center mx-1"
@@ -176,11 +175,11 @@ export default function CartPage() {
                   </div>
                 </div>
               </Card>
-            ))}
+            )})}
           </div>
 
           <div className="lg:col-span-1">
-            <Card className="shadow-lg sticky top-24"> {/* sticky top for summary */}
+            <Card className="shadow-lg sticky top-24">
               <CardHeader>
                 <CardTitle className="font-headline text-xl">Quote Summary</CardTitle>
               </CardHeader>
