@@ -30,26 +30,8 @@ import { Separator } from '@/components/ui/separator';
 
 type QuoteStatus = 'DRAFT' | 'SENT' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED';
 
-interface BuyerQuote {
+interface QuoteItem {
   id: string;
-  quoteNumber: string;
-  seller: {
-    id?: string; // Optional for list view
-    name: string;
-  };
-  createdAt: string;
-  validUntil: string;
-  totalAmount: number;
-  status: QuoteStatus;
-  notes?: string | null;
-  subtotal?: number;
-  taxAmount?: number;
-}
-
-// Type for the detailed quote item response
-interface QuoteItemDetail {
-  id: string; // quote item id
-  quote: BuyerQuote;
   product: {
     id: string;
     name: string;
@@ -67,6 +49,23 @@ interface QuoteItemDetail {
   totalPrice: number;
 }
 
+interface BuyerQuote {
+  id: string;
+  quoteNumber: string;
+  seller: {
+    id: string;
+    name: string;
+  };
+  createdAt: string;
+  validUntil: string;
+  totalAmount: number;
+  status: QuoteStatus;
+  notes?: string | null;
+  subtotal: number;
+  taxAmount: number;
+  quoteItem: QuoteItem;
+}
+
 
 const getStatusBadgeVariant = (status: QuoteStatus) => {
   switch (status) {
@@ -80,6 +79,7 @@ const getStatusBadgeVariant = (status: QuoteStatus) => {
 export default function BuyerQuoteRequestsPage() {
   const [quotes, setQuotes] = useState<BuyerQuote[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const { toast } = useToast();
@@ -88,12 +88,10 @@ export default function BuyerQuoteRequestsPage() {
 
   // State for the modal
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedQuoteDetails, setSelectedQuoteDetails] = useState<QuoteItemDetail[] | null>(null);
-  const [isFetchingDetails, setIsFetchingDetails] = useState(false);
+  const [selectedQuote, setSelectedQuote] = useState<BuyerQuote | null>(null);
 
   // State for withdrawal
-  const [isWithdrawing, setIsWithdrawing] = useState(false);
-  const [itemToWithdraw, setItemToWithdraw] = useState<QuoteItemDetail | null>(null);
+  const [quoteToDelete, setQuoteToDelete] = useState<BuyerQuote | null>(null);
 
   const fetchQuotes = useCallback(async () => {
     if (!currentUser || !accessToken) {
@@ -124,60 +122,24 @@ export default function BuyerQuoteRequestsPage() {
     fetchQuotes();
   }, [fetchQuotes]);
 
-  const handleViewDetails = async (quote: BuyerQuote) => {
+  const handleViewDetails = (quote: BuyerQuote) => {
+    setSelectedQuote(quote);
     setIsModalOpen(true);
-    setIsFetchingDetails(true);
-    setSelectedQuoteDetails(null);
-    if (!accessToken) {
-        toast({ variant: "destructive", title: "Error", description: "Authentication token not found." });
-        setIsFetchingDetails(false);
-        return;
-    }
-    
-    try {
-      const response = await fetch(`${API_BASE_URL}/quoteitems/quote`, {
-        method: 'POST',
-        headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${accessToken}` 
-        },
-        body: JSON.stringify({ id: quote.id})
-      });
-
-      const responseData = await response.json();
-      if (!response.ok) {
-        throw new Error(responseData.message || "Failed to fetch quote details.");
-      }
-
-      // Handle both array and single object responses for safety
-      const details = Array.isArray(responseData.data) ? responseData.data : [responseData.data];
-      setSelectedQuoteDetails(details);
-
-    } catch(err: any) {
-      toast({ variant: "destructive", title: "Error Fetching Details", description: err.message });
-      // Don't close modal on error, show error inside
-    } finally {
-      setIsFetchingDetails(false);
-    }
   };
   
   const handleCloseModal = () => {
     setIsModalOpen(false);
-    setSelectedQuoteDetails(null);
+    setSelectedQuote(null);
   };
   
-  const handleWithdrawClick = (item: QuoteItemDetail) => {
-    setItemToWithdraw(item);
-  };
-
-  const confirmWithdraw = async () => {
-    if (!itemToWithdraw || !accessToken) {
-        toast({ variant: "destructive", title: "Error", description: "Quote item or authentication token not found." });
+  const confirmDelete = async () => {
+    if (!quoteToDelete || !accessToken) {
+        toast({ variant: "destructive", title: "Error", description: "Quote or authentication token not found." });
         return;
     }
-    setIsWithdrawing(true);
+    setIsDeleting(true);
     try {
-        const response = await fetch(`${API_BASE_URL}/quoteitems/${itemToWithdraw.id}`, {
+        const response = await fetch(`${API_BASE_URL}/quotes/${quoteToDelete.id}`, {
             method: 'DELETE',
             headers: { 'Authorization': `Bearer ${accessToken}` },
         });
@@ -187,47 +149,38 @@ export default function BuyerQuoteRequestsPage() {
             throw new Error(responseData.message || "An unknown error occurred.");
         }
         
-        toast({ title: "Quote Withdrawn", description: `Quote #${itemToWithdraw.quote.quoteNumber} has been successfully withdrawn.` });
+        toast({ title: "Quote Withdrawn", description: `Quote #${quoteToDelete.quoteNumber} has been successfully withdrawn.` });
 
-        setIsModalOpen(false);
         fetchQuotes();
     } catch (err: any) {
         toast({ variant: "destructive", title: "Withdrawal Failed", description: err.message });
     } finally {
-        setIsWithdrawing(false);
-        setItemToWithdraw(null);
+        setIsDeleting(false);
+        setQuoteToDelete(null);
     }
   };
 
   const renderModalContent = () => {
-    if (isFetchingDetails) {
-      return (
-        <div className="flex justify-center items-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="ml-2 text-muted-foreground">Loading details...</p>
-        </div>
-      );
-    }
-
-    if (!selectedQuoteDetails || selectedQuoteDetails.length === 0) {
+    if (!selectedQuote) {
       return <p className="text-destructive text-center py-12">Could not load quote details.</p>;
     }
 
-    const quoteInfo = selectedQuoteDetails[0].quote;
+    const item = selectedQuote.quoteItem;
+    const primaryImage = item.variant?.images?.[0];
 
     return (
       <>
         <DialogHeader className="mb-4">
-          <DialogTitle className="font-headline text-2xl">Quote #{quoteInfo.quoteNumber}</DialogTitle>
+          <DialogTitle className="font-headline text-2xl">Quote #{selectedQuote.quoteNumber}</DialogTitle>
           <DialogDescription>
-            From Seller: <span className="font-medium text-foreground">{quoteInfo.seller.name}</span>
+            From Seller: <span className="font-medium text-foreground">{selectedQuote.seller.name}</span>
             <br/>
-            Status: <Badge variant={getStatusBadgeVariant(quoteInfo.status)} className={quoteInfo.status === 'ACCEPTED' ? 'bg-green-500 hover:bg-green-600 text-white' : ''}>{quoteInfo.status.replace(/_/g, ' ')}</Badge>
+            Status: <Badge variant={getStatusBadgeVariant(selectedQuote.status)} className={selectedQuote.status === 'ACCEPTED' ? 'bg-green-500 hover:bg-green-600 text-white' : ''}>{selectedQuote.status.replace(/_/g, ' ')}</Badge>
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
-            <h3 className="font-semibold text-foreground flex items-center"><Package className="mr-2 h-4 w-4 text-primary" /> Items</h3>
+            <h3 className="font-semibold text-foreground flex items-center"><Package className="mr-2 h-4 w-4 text-primary" /> Item Details</h3>
             <Table>
                 <TableHeader>
                     <TableRow>
@@ -240,22 +193,20 @@ export default function BuyerQuoteRequestsPage() {
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {selectedQuoteDetails.map(item => (
-                        <TableRow key={item.id}>
-                            <TableCell>
-                              {item.variant.images && item.variant.images.length > 0 ? (
-                                <img src={item.variant.images[0].imageUrl} alt={item.product.name} className="w-10 h-10 object-cover rounded" />
-                              ) : (
-                                <span className="text-muted-foreground text-sm">No Image</span>
-                              )}
-                            </TableCell>
-                            <TableCell>{item.product.name}</TableCell>
-                            <TableCell>{item.variant.variantName || 'N/A'}</TableCell>
-                            <TableCell className="text-right">{item.quantity}</TableCell>
-                            <TableCell className="text-right">${item.quotedPrice.toFixed(2)}</TableCell>
-                            <TableCell className="text-right">${item.totalPrice.toFixed(2)}</TableCell>
-                        </TableRow>
-                    ))}
+                    <TableRow key={item.id}>
+                        <TableCell>
+                          {primaryImage?.imageUrl ? (
+                            <img src={primaryImage.imageUrl} alt={item.product.name} className="w-10 h-10 object-cover rounded" />
+                          ) : (
+                            <span className="text-muted-foreground text-sm">No Image</span>
+                          )}
+                        </TableCell>
+                        <TableCell>{item.product.name}</TableCell>
+                        <TableCell>{item.variant.variantName || 'N/A'}</TableCell>
+                        <TableCell className="text-right">{item.quantity}</TableCell>
+                        <TableCell className="text-right">${item.quotedPrice.toFixed(2)}</TableCell>
+                        <TableCell className="text-right">${item.totalPrice.toFixed(2)}</TableCell>
+                    </TableRow>
                 </TableBody>
             </Table>
 
@@ -263,27 +214,20 @@ export default function BuyerQuoteRequestsPage() {
             
             <h3 className="font-semibold text-foreground flex items-center"><ReceiptText className="mr-2 h-4 w-4 text-primary"/>Summary</h3>
             <div className="space-y-1 text-sm text-right w-full sm:w-1/2 ml-auto">
-                <div className="flex justify-between"><span>Subtotal:</span><span>${quoteInfo.subtotal?.toFixed(2) || '0.00'}</span></div>
-                <div className="flex justify-between"><span>Tax:</span><span>${quoteInfo.taxAmount?.toFixed(2) || '0.00'}</span></div>
-                <div className="flex justify-between font-bold text-base"><span>Total:</span><span>${quoteInfo.totalAmount.toFixed(2)}</span></div>
+                <div className="flex justify-between"><span>Subtotal:</span><span>${selectedQuote.subtotal?.toFixed(2) || '0.00'}</span></div>
+                <div className="flex justify-between"><span>Tax:</span><span>${selectedQuote.taxAmount?.toFixed(2) || '0.00'}</span></div>
+                <div className="flex justify-between font-bold text-base"><span>Total:</span><span>${selectedQuote.totalAmount.toFixed(2)}</span></div>
             </div>
 
-            {quoteInfo.notes && (
+            {selectedQuote.notes && (
                 <>
                     <Separator />
                     <h3 className="font-semibold text-foreground flex items-center"><Tag className="mr-2 h-4 w-4 text-primary"/>Seller Notes</h3>
-                    <p className="text-sm text-muted-foreground p-3 bg-muted rounded-md">{quoteInfo.notes}</p>
+                    <p className="text-sm text-muted-foreground p-3 bg-muted rounded-md">{selectedQuote.notes}</p>
                 </>
             )}
         </div>
-        <DialogFooter className="pt-4 mt-4 border-t flex-col-reverse sm:flex-row sm:justify-between sm:items-center">
-            {quoteInfo.status === 'DRAFT' ? (
-                <Button variant="destructive" onClick={() => handleWithdrawClick(selectedQuoteDetails[0])} disabled={isWithdrawing}>
-                    <Trash2 className="mr-2 h-4 w-4" /> Withdraw Quote
-                </Button>
-            ) : (
-                <div></div> // Placeholder to keep Close button on the right
-            )}
+        <DialogFooter className="pt-4 mt-4 border-t flex justify-end">
             <Button variant="outline" onClick={handleCloseModal}>Close</Button>
         </DialogFooter>
       </>
@@ -399,10 +343,15 @@ export default function BuyerQuoteRequestsPage() {
                               {quote.status.replace(/_/g, ' ')}
                             </Badge>
                           </TableCell>
-                          <TableCell className="text-right">
+                          <TableCell className="text-right space-x-2">
                             <Button variant="outline" size="sm" onClick={() => handleViewDetails(quote)}>
                               View Details
                             </Button>
+                            {quote.status === 'DRAFT' && (
+                               <Button variant="destructive" size="sm" onClick={() => setQuoteToDelete(quote)} disabled={isDeleting}>
+                                   {isDeleting && quoteToDelete?.id === quote.id ? <Loader2 className="h-4 w-4 animate-spin"/> : <Trash2 className="h-4 w-4" />}
+                               </Button>
+                            )}
                           </TableCell>
                         </TableRow>
                       ))}
@@ -422,26 +371,26 @@ export default function BuyerQuoteRequestsPage() {
       </SidebarProvider>
       
       {/* Quote Details Modal */}
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+      <Dialog open={isModalOpen} onOpenChange={handleCloseModal}>
         <DialogContent className="sm:max-w-3xl">
           {renderModalContent()}
         </DialogContent>
       </Dialog>
       
       {/* Withdraw Confirmation Dialog */}
-      {itemToWithdraw && (
-        <AlertDialog open={!!itemToWithdraw} onOpenChange={() => setItemToWithdraw(null)}>
+      {quoteToDelete && (
+        <AlertDialog open={!!quoteToDelete} onOpenChange={() => setQuoteToDelete(null)}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Are you sure you want to withdraw this quote?</AlertDialogTitle>
               <AlertDialogDescription>
-                This action cannot be undone. This will permanently withdraw quote #{itemToWithdraw.quote.quoteNumber}.
+                This action cannot be undone. This will permanently withdraw quote #{quoteToDelete.quoteNumber}.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => setItemToWithdraw(null)} disabled={isWithdrawing}>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={confirmWithdraw} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={isWithdrawing}>
-                {isWithdrawing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              <AlertDialogCancel onClick={() => setQuoteToDelete(null)} disabled={isDeleting}>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={isDeleting}>
+                {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                 Yes, Withdraw
               </AlertDialogAction>
             </AlertDialogFooter>
