@@ -3,7 +3,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { Menu, ShoppingCart, LogOut, UserCircle2 } from 'lucide-react';
+import { Menu, FileText, LogOut, UserCircle2 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import logo from "../../assets/AppIconLogo.png"
@@ -53,6 +53,19 @@ export default function Header() {
     return name.substring(0, 2).toUpperCase();
   };
 
+  const getQuoteLink = () => {
+    if (isAuthenticated && user) {
+      if (user.role === 'BUYER') {
+        return '/buyer/dashboard/quote-requests';
+      }
+      if (user.role === 'SELLER') {
+        return '/seller/dashboard/quotes';
+      }
+    }
+    // Default for guest users or other roles
+    return '/cart';
+  };
+
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center">
@@ -89,8 +102,8 @@ export default function Header() {
         <div className="flex flex-1 items-center justify-end space-x-2 md:flex-initial">
           <ThemeToggleButton />
           <Button variant="ghost" size="icon" asChild>
-            <Link href="/cart" aria-label="Quote Cart">
-              <ShoppingCart className="h-5 w-5" />
+            <Link href={getQuoteLink()} aria-label="My Quotes">
+              <FileText className="h-5 w-5" />
             </Link>
           </Button>
 
@@ -173,10 +186,10 @@ export default function Header() {
                   Products
                 </Link>
                 <Link
-                  href="/cart"
+                  href={getQuoteLink()}
                   className="text-muted-foreground hover:text-primary flex items-center"
                 >
-                  <ShoppingCart className="mr-2 h-5 w-5" /> Quote Cart
+                  <FileText className="mr-2 h-5 w-5" /> My Quotes
                 </Link>
                  {mounted && isAuthenticated && user?.role === 'BUYER' && (
                     <Link href="/buyer/dashboard" className="text-muted-foreground hover:text-primary">Buyer Dashboard</Link>
