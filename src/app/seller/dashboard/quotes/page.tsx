@@ -329,6 +329,7 @@ export default function SellerQuotesPage() {
                               <TableHead className="w-[80px]">Image</TableHead>
                               <TableHead>Quote #</TableHead>
                               <TableHead>Product / Variant</TableHead>
+                              <TableHead className="text-right">Qty</TableHead>
                               <TableHead className="text-right">Total</TableHead>
                               <TableHead>Current Status</TableHead>
                               <TableHead>Update Status</TableHead>
@@ -363,6 +364,7 @@ export default function SellerQuotesPage() {
                                         <span className="text-muted-foreground">N/A</span>
                                     )}
                                 </TableCell>
+                                <TableCell className="text-right">{quote.quoteItem?.quantity ?? 'N/A'}</TableCell>
                                 <TableCell className="text-right">${quote.totalAmount.toFixed(2)}</TableCell>
                                 <TableCell>
                                   <Badge variant={getQuoteStatusBadgeVariant(quote.status)} className={quote.status === 'ACCEPTED' ? 'bg-green-500 hover:bg-green-600 text-white' : ''}>
