@@ -267,6 +267,7 @@ export default function SellerQuotesPage() {
                           <TableHeader>
                             <TableRow>
                               <TableHead>Quote #</TableHead>
+                              <TableHead>Product / Variant</TableHead>
                               <TableHead>Created</TableHead>
                               <TableHead className="text-right">Total</TableHead>
                               <TableHead>Current Status</TableHead>
@@ -278,10 +279,24 @@ export default function SellerQuotesPage() {
                             {group.quotes.map(quote => (
                               <TableRow key={quote.id}>
                                 <TableCell className="font-medium">{quote.quoteNumber}</TableCell>
+                                <TableCell>
+                                    {quote.quoteItem ? (
+                                        <div className="flex flex-col">
+                                            <span className="font-medium truncate max-w-[200px]" title={quote.quoteItem.product.name}>
+                                                {quote.quoteItem.product.name}
+                                            </span>
+                                            <span className="text-xs text-muted-foreground">
+                                                {quote.quoteItem.variant.variantName || 'Default'}
+                                            </span>
+                                        </div>
+                                    ) : (
+                                        <span className="text-muted-foreground">N/A</span>
+                                    )}
+                                </TableCell>
                                 <TableCell>{new Date(quote.createdAt).toLocaleDateString()}</TableCell>
                                 <TableCell className="text-right">${quote.totalAmount.toFixed(2)}</TableCell>
                                 <TableCell>
-                                  <Badge variant={getQuoteStatusBadgeVariant(quote.status)} className={quote.status === 'ACCEPTED' ? 'bg-green-500 hover:bg-green-600' : ''}>
+                                  <Badge variant={getQuoteStatusBadgeVariant(quote.status)} className={quote.status === 'ACCEPTED' ? 'bg-green-500 hover:bg-green-600 text-white' : ''}>
                                     {quote.status.replace(/_/g, ' ')}
                                   </Badge>
                                 </TableCell>
