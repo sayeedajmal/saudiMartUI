@@ -4,9 +4,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSelector } from 'react-redux';
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { FileText, PlusCircle, Loader2, Filter, User, Tag, ChevronDown, CheckCircle, XCircle } from "lucide-react";
+import { FileText, Loader2, Filter, User, Tag, ChevronDown, CheckCircle, XCircle, RefreshCw } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from '@/hooks/use-toast';
@@ -208,10 +207,11 @@ export default function SellerQuotesPage() {
           <CardHeader className="flex-col sm:flex-row justify-between items-start sm:items-center">
             <div className="mb-4 sm:mb-0">
               <CardTitle className="font-headline">Your Quotes</CardTitle>
-              <CardDescription>Review, update, and manage price quotations sent to buyers.</CardDescription>
+              <CardDescription>Review, update, and manage price quotations to buyers.</CardDescription>
             </div>
-            <Button asChild className="bg-accent text-accent-foreground hover:bg-accent/90">
-              <Link href="/seller/dashboard/quotes/new"><PlusCircle className="mr-2 h-4 w-4" /> Create New Quote</Link>
+            <Button onClick={fetchSellerQuotes} variant="outline" disabled={isLoading} className="bg-accent text-accent-foreground hover:bg-accent/90">
+              <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+              Refresh
             </Button>
           </CardHeader>
           
@@ -323,5 +323,3 @@ export default function SellerQuotesPage() {
     </>
   );
 }
-
-    
