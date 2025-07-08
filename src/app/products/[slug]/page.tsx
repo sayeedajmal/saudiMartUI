@@ -7,7 +7,7 @@ import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { ShoppingCart, Send, AlertTriangle, ChevronLeft, ChevronRight, Minus, Plus, Loader2 } from 'lucide-react';
+import { ShoppingCart, Send, AlertTriangle, ChevronLeft, ChevronRight, Minus, Plus, Loader2, Info } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import Link from 'next/link';
 import { useEffect, useState, useCallback } from 'react';
@@ -18,6 +18,8 @@ import { API_BASE_URL } from '@/lib/api';
 import { useSelector, useDispatch } from 'react-redux';
 import { selectCurrentProduct, clearSelectedProduct } from '@/lib/redux/slices/productSlice';
 import { selectUser, selectAccessToken, type MyProfile } from '@/lib/redux/slices/userSlice';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 
 export default function ProductDetailPage() {
@@ -79,6 +81,8 @@ export default function ProductDetailPage() {
        if (product.variants?.length > 0) {
         setSelectedVariant(product.variants[0]);
         setQuantity(product.minimumOrderQuantity || 1);
+      } else {
+        setQuantity(product.minimumOrderQuantity || 1);
       }
        setSelectedImageIndex(0);
     }
@@ -90,6 +94,8 @@ export default function ProductDetailPage() {
 
   const handleVariantChange = (variant: ProductVariant) => {
     setSelectedVariant(variant);
+    // Optionally reset quantity to MOQ of the new variant if it existed, otherwise product's MOQ
+    setQuantity(product?.minimumOrderQuantity || 1);
   };
 
   const handleQuantityChange = (amount: number) => {
@@ -198,7 +204,7 @@ export default function ProductDetailPage() {
     });
   };
 
-  const imagesToShow = selectedVariant?.images || product?.variants?.[0]?.images || [];
+  const imagesToShow = selectedVariant?.images?.length ? selectedVariant.images : (product?.variants?.[0]?.images || []);
 
   const nextImage = () => setSelectedImageIndex(prev => (prev + 1) % imagesToShow.length);
   const prevImage = () => setSelectedImageIndex(prev => (prev - 1 + imagesToShow.length) % imagesToShow.length);
@@ -284,7 +290,32 @@ export default function ProductDetailPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-semibold text-primary mb-4">${selectedVariant?.basePrice?.toFixed(2) || product.basePrice?.toFixed(2) || 'N/A'}</p>
+            <p className="text-2xl font-semibold text-primary mb-2">${selectedVariant?.basePrice?.toFixed(2) || product.basePrice?.toFixed(2) || 'N/A'}</p>
+            
+            {selectedVariant?.priceTiers && selectedVariant.priceTiers.length > 0 && (
+                <div className="mb-4">
+                    <h4 className="font-semibold text-sm mb-2 text-muted-foreground">Volume Pricing</h4>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead className="h-8">Min Qty</TableHead>
+                                <TableHead className="h-8">Max Qty</TableHead>
+                                <TableHead className="h-8 text-right">Price/Unit</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {selectedVariant.priceTiers.map(tier => (
+                                <TableRow key={tier.id}>
+                                    <TableCell className="py-1">{tier.minQuantity}</TableCell>
+                                    <TableCell className="py-1">{tier.maxQuantity || 'and up'}</TableCell>
+                                    <TableCell className="py-1 text-right">${tier.pricePerUnit.toFixed(2)}</TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </div>
+            )}
+
             <p className="text-muted-foreground whitespace-pre-line text-sm mb-6">{product.description}</p>
             <Separator className="mb-6" />
 
@@ -306,7 +337,7 @@ export default function ProductDetailPage() {
             )}
 
             <div className="mb-6">
-              <Label htmlFor="quantity" className="text-sm font-medium">Quantity (MOQ: {product.minimumOrderQuantity})</Label>
+              <Label htmlFor="quantity" className="text-sm font-medium">Quantity</Label>
               <div className="flex items-center mt-1">
                 <Button variant="outline" size="icon" onClick={() => handleQuantityChange(-1)} disabled={quantity <= product.minimumOrderQuantity}> <Minus className="h-4 w-4" /> </Button>
                 <Input id="quantity" type="number" value={quantity}
@@ -319,7 +350,17 @@ export default function ProductDetailPage() {
                 />
                 <Button variant="outline" size="icon" onClick={() => handleQuantityChange(1)}> <Plus className="h-4 w-4" /> </Button>
               </div>
+              <p className="text-xs text-muted-foreground mt-1">Minimum Order Quantity (MOQ): {product.minimumOrderQuantity}</p>
             </div>
+            
+            <Alert>
+                <Info className="h-4 w-4"/>
+                <AlertTitle className="text-sm">Note on Pricing</AlertTitle>
+                <AlertDescription className="text-xs">
+                    The final price may vary based on the quantity requested. The seller will confirm the price in the official quote.
+                </AlertDescription>
+            </Alert>
+
 
           </CardContent>
           <CardFooter className="flex flex-col sm:flex-row gap-3">
@@ -363,3 +404,4 @@ export default function ProductDetailPage() {
     </div>
   );
 }
+
