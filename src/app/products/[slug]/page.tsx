@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { ShoppingCart, Send, AlertTriangle, ChevronLeft, ChevronRight, Minus, Plus, Loader2, Info } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import Link from 'next/link';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
@@ -77,30 +77,44 @@ export default function ProductDetailPage() {
 
 
   useEffect(() => {
+    // This effect runs once when the product data is loaded
     if (product) {
-       if (product.variants?.length > 0) {
-        setSelectedVariant(product.variants[0]);
-        setQuantity(product.minimumOrderQuantity || 1);
-      } else {
-        setQuantity(product.minimumOrderQuantity || 1);
-      }
+       const initialVariant = product.variants?.[0] || null;
+       setSelectedVariant(initialVariant);
+       // Quantity is set by the useEffect watching effectiveMoq
        setSelectedImageIndex(0);
     }
   }, [product]);
 
+  const effectiveMoq = useMemo(() => {
+    if (selectedVariant?.priceTiers && selectedVariant.priceTiers.length > 0) {
+      // Find the lowest minQuantity in the selected variant's price tiers
+      const variantMoq = selectedVariant.priceTiers.reduce(
+        (min, tier) => Math.min(min, tier.minQuantity),
+        Infinity
+      );
+      if (isFinite(variantMoq) && variantMoq > 0) {
+        return variantMoq;
+      }
+    }
+    // Fallback to the main product's MOQ
+    return product?.minimumOrderQuantity || 1;
+  }, [selectedVariant, product?.minimumOrderQuantity]);
+
   useEffect(() => {
-    setSelectedImageIndex(0);
-  }, [selectedVariant]);
+    // Whenever the effective MOQ changes (on product load or variant change),
+    // ensure the quantity is at least the new MOQ.
+    setQuantity(q => Math.max(effectiveMoq, q));
+  }, [effectiveMoq]);
 
   const handleVariantChange = (variant: ProductVariant) => {
     setSelectedVariant(variant);
-    // Optionally reset quantity to MOQ of the new variant if it existed, otherwise product's MOQ
-    setQuantity(product?.minimumOrderQuantity || 1);
+    // The useEffect watching `effectiveMoq` will handle the quantity update.
+    setSelectedImageIndex(0); // Reset image to the first one for the new variant
   };
 
   const handleQuantityChange = (amount: number) => {
-    const moq = product?.minimumOrderQuantity || 1;
-    setQuantity(prev => Math.max(moq, prev + amount));
+    setQuantity(prev => Math.max(effectiveMoq, prev + amount));
   };
 
   const handleAddToCart = async () => {
@@ -339,18 +353,18 @@ export default function ProductDetailPage() {
             <div className="mb-6">
               <Label htmlFor="quantity" className="text-sm font-medium">Quantity</Label>
               <div className="flex items-center mt-1">
-                <Button variant="outline" size="icon" onClick={() => handleQuantityChange(-1)} disabled={quantity <= product.minimumOrderQuantity}> <Minus className="h-4 w-4" /> </Button>
+                <Button variant="outline" size="icon" onClick={() => handleQuantityChange(-1)} disabled={quantity <= effectiveMoq}> <Minus className="h-4 w-4" /> </Button>
                 <Input id="quantity" type="number" value={quantity}
                   onChange={(e) => {
                     const val = parseInt(e.target.value);
-                    if (!isNaN(val)) setQuantity(Math.max(product.minimumOrderQuantity || 1, val));
+                    if (!isNaN(val)) setQuantity(Math.max(effectiveMoq, val));
                   }}
-                  onBlur={() => { if (quantity < (product.minimumOrderQuantity || 1)) setQuantity(product.minimumOrderQuantity || 1) }}
-                  className="w-20 text-center mx-2" min={product.minimumOrderQuantity}
+                  onBlur={() => { if (quantity < effectiveMoq) setQuantity(effectiveMoq) }}
+                  className="w-20 text-center mx-2" min={effectiveMoq}
                 />
                 <Button variant="outline" size="icon" onClick={() => handleQuantityChange(1)}> <Plus className="h-4 w-4" /> </Button>
               </div>
-              <p className="text-xs text-muted-foreground mt-1">Minimum Order Quantity (MOQ): {product.minimumOrderQuantity}</p>
+              <p className="text-xs text-muted-foreground mt-1">Minimum Order Quantity (MOQ): {effectiveMoq}</p>
             </div>
             
             <Alert>
@@ -404,4 +418,3 @@ export default function ProductDetailPage() {
     </div>
   );
 }
-
