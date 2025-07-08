@@ -33,6 +33,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 type QuoteStatus = 'DRAFT' | 'SENT' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED';
 
 const ALL_QUOTE_STATUSES: QuoteStatus[] = ['DRAFT', 'SENT', 'ACCEPTED', 'REJECTED', 'EXPIRED'];
+const STATUS_ORDER: QuoteStatus[] = ['DRAFT', 'SENT', 'ACCEPTED', 'REJECTED', 'EXPIRED'];
 
 interface QuoteItem {
   id: string;
@@ -79,7 +80,6 @@ interface PaginationInfo {
     pageNumber: number;
     pageSize: number;
 }
-
 
 const getStatusBadgeVariant = (status: QuoteStatus) => {
   switch (status) {
@@ -155,6 +155,20 @@ export default function BuyerQuoteRequestsPage() {
       setIsLoading(false);
     }
   }, [currentUser, accessToken, toast]);
+
+  const groupedQuotes = useMemo(() => {
+    const groups = STATUS_ORDER.reduce((acc, status) => {
+        acc[status] = [];
+        return acc;
+    }, {} as Record<QuoteStatus, BuyerQuote[]>);
+
+    for (const quote of quotes) {
+        if (quote && quote.status && groups[quote.status]) {
+            groups[quote.status].push(quote);
+        }
+    }
+    return groups;
+  }, [quotes]);
 
   useEffect(() => {
     fetchQuotes(currentPage, statusFilter);
@@ -397,41 +411,63 @@ export default function BuyerQuoteRequestsPage() {
                 ) : error ? (
                   <p className="text-destructive text-center py-8">{error}</p>
                 ) : quotes.length > 0 ? (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Quote #</TableHead>
-                        <TableHead>Seller</TableHead>
-                        <TableHead>Created</TableHead>
-                        <TableHead className="text-right">Quantity</TableHead>
-                        <TableHead className="text-right">Total</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {quotes.map((quote) => (
-                        <TableRow key={quote.id}>
-                          <TableCell className="font-medium">{quote.quoteNumber}</TableCell>
-                          <TableCell>{quote.seller.name}</TableCell>
-                          <TableCell>{new Date(quote.createdAt).toLocaleDateString()}</TableCell>
-                          <TableCell className="text-right">{quote.quoteItem?.quantity ?? 'N/A'}</TableCell>
-                          <TableCell className="text-right">${quote.totalAmount.toFixed(2)}</TableCell>
-                          <TableCell>
-                            <Badge variant={getStatusBadgeVariant(quote.status)}
-                                  className={quote.status === 'ACCEPTED' ? 'bg-green-500 hover:bg-green-600 text-white' : ''}>
-                              {quote.status.replace(/_/g, ' ')}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-right space-x-2">
-                            <Button variant="outline" size="sm" onClick={() => handleViewDetails(quote)}>
-                              View Details
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                    <Accordion type="multiple" className="w-full space-y-4" defaultValue={['DRAFT', 'SENT', 'ACCEPTED']}>
+                        {STATUS_ORDER.map(status => {
+                            const group = groupedQuotes[status];
+                            if (!group || group.length === 0) return null;
+
+                            const statusName = status.replace(/_/g, ' ');
+                            const statusBadgeVariant = getStatusBadgeVariant(status);
+                            const statusClassName = status === 'ACCEPTED' ? 'bg-green-500 hover:bg-green-600 text-white' : '';
+
+                            return (
+                                <AccordionItem key={status} value={status} className="border-b-0">
+                                    <Card className="shadow-sm">
+                                        <AccordionTrigger className="p-4 hover:no-underline rounded-t-lg data-[state=open]:bg-muted/80">
+                                            <div className="flex items-center gap-3">
+                                                <Badge variant={statusBadgeVariant} className={statusClassName}>{statusName}</Badge>
+                                                <span className="font-headline text-lg">{statusName} Quotes</span>
+                                                <span className="text-sm text-muted-foreground">({group.length} item{group.length !== 1 ? 's' : ''})</span>
+                                            </div>
+                                        </AccordionTrigger>
+                                        <AccordionContent className="p-0">
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow>
+                                                        <TableHead>Quote #</TableHead>
+                                                        <TableHead>Seller</TableHead>
+                                                        <TableHead>Created</TableHead>
+                                                        <TableHead className="text-right">Quantity</TableHead>
+                                                        <TableHead className="text-right">Total</TableHead>
+                                                        <TableHead className="text-right">Actions</TableHead>
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {group.map((quote) => (
+                                                        <TableRow key={quote.id}>
+                                                            <TableCell className="font-medium">{quote.quoteNumber}</TableCell>
+                                                            <TableCell>{quote.seller.name}</TableCell>
+                                                            <TableCell>{new Date(quote.createdAt).toLocaleDateString()}</TableCell>
+                                                            <TableCell className="text-right">{quote.quoteItem?.quantity ?? 'N/A'}</TableCell>
+                                                            <TableCell className="text-right">${quote.totalAmount.toFixed(2)}</TableCell>
+                                                            <TableCell className="text-right space-x-2">
+                                                                <Button variant="outline" size="sm" onClick={() => handleViewDetails(quote)}>View Details</Button>
+                                                                {quote.status === 'DRAFT' && (
+                                                                    <Button variant="destructive" size="sm" onClick={() => setQuoteToDelete(quote)} disabled={isDeleting}>
+                                                                        {isDeleting && quoteToDelete?.id === quote.id ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null} Withdraw
+                                                                    </Button>
+                                                                )}
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                        </AccordionContent>
+                                    </Card>
+                                </AccordionItem>
+                            );
+                        })}
+                    </Accordion>
                 ) : (
                   <div className="text-center py-10">
                       <FileText className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
