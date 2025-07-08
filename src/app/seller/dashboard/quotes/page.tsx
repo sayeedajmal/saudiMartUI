@@ -163,10 +163,9 @@ export default function SellerQuotesPage() {
   }
 
   const uniqueBuyers = useMemo(() => {
-    // This should ideally be populated from a separate endpoint for better UX with pagination
     const buyers = new Map<string, string>();
     allQuotes.forEach(quote => {
-      if (!buyers.has(quote.buyer.id)) {
+      if (quote.buyer && !buyers.has(quote.buyer.id)) {
         buyers.set(quote.buyer.id, quote.buyer.name);
       }
     });
@@ -175,11 +174,13 @@ export default function SellerQuotesPage() {
 
   const groupedAndFilteredQuotes = useMemo(() => {
     const grouped = allQuotes.reduce<Record<string, BuyerGroup>>((acc, quote) => {
-      const buyerId = quote.buyer.id;
-      if (!acc[buyerId]) {
-        acc[buyerId] = { buyerId, buyerName: quote.buyer.name, quotes: [] };
+      if (quote.buyer) {
+        const buyerId = quote.buyer.id;
+        if (!acc[buyerId]) {
+          acc[buyerId] = { buyerId, buyerName: quote.buyer.name, quotes: [] };
+        }
+        acc[buyerId].quotes.push(quote);
       }
-      acc[buyerId].quotes.push(quote);
       return acc;
     }, {});
     
