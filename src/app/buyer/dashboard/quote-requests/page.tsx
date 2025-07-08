@@ -47,6 +47,7 @@ interface QuoteItem {
   quantity: number;
   quotedPrice: number;
   totalPrice: number;
+  discountPercent?: number;
 }
 
 interface BuyerQuote {
@@ -229,6 +230,12 @@ export default function BuyerQuoteRequestsPage() {
         </div>
         <DialogFooter className="pt-4 mt-4 border-t flex justify-end">
             <Button variant="outline" onClick={handleCloseModal}>Close</Button>
+            {selectedQuote.status === 'DRAFT' && (
+                <Button variant="destructive" onClick={() => { setQuoteToDelete(selectedQuote); handleCloseModal(); }} disabled={isDeleting}>
+                    {isDeleting && quoteToDelete?.id === selectedQuote.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Trash2 className="mr-2 h-4 w-4" />}
+                     Withdraw Quote
+                </Button>
+            )}
         </DialogFooter>
       </>
     );
@@ -325,7 +332,8 @@ export default function BuyerQuoteRequestsPage() {
                         <TableHead>Quote #</TableHead>
                         <TableHead>Seller</TableHead>
                         <TableHead>Created</TableHead>
-                        <TableHead>Total</TableHead>
+                        <TableHead className="text-right">Quantity</TableHead>
+                        <TableHead className="text-right">Total</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
@@ -336,7 +344,8 @@ export default function BuyerQuoteRequestsPage() {
                           <TableCell className="font-medium">{quote.quoteNumber}</TableCell>
                           <TableCell>{quote.seller.name}</TableCell>
                           <TableCell>{new Date(quote.createdAt).toLocaleDateString()}</TableCell>
-                          <TableCell>${quote.totalAmount.toFixed(2)}</TableCell>
+                          <TableCell className="text-right">{quote.quoteItem?.quantity ?? 'N/A'}</TableCell>
+                          <TableCell className="text-right">${quote.totalAmount.toFixed(2)}</TableCell>
                           <TableCell>
                             <Badge variant={getStatusBadgeVariant(quote.status)}
                                   className={quote.status === 'ACCEPTED' ? 'bg-green-500 hover:bg-green-600 text-white' : ''}>
