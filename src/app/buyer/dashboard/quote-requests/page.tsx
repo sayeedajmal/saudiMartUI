@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSelector } from 'react-redux';
 import {
   SidebarProvider,
@@ -15,8 +15,8 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { LayoutDashboard, ShoppingCart, Heart, MessageCircle, FileText, Bell, Settings, MapPin, Loader2, Package, Tag, ReceiptText, Trash2 } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { LayoutDashboard, ShoppingCart, Heart, MessageCircle, FileText, Bell, Settings, MapPin, Loader2, Package, Tag, ReceiptText, Trash2, RefreshCw, ChevronLeft, ChevronRight, Filter } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
@@ -27,8 +27,12 @@ import { API_BASE_URL } from '@/lib/api';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Separator } from '@/components/ui/separator';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type QuoteStatus = 'DRAFT' | 'SENT' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED';
+
+const ALL_QUOTE_STATUSES: QuoteStatus[] = ['DRAFT', 'SENT', 'ACCEPTED', 'REJECTED', 'EXPIRED'];
 
 interface QuoteItem {
   id: string;
@@ -67,6 +71,15 @@ interface BuyerQuote {
   quoteItem: QuoteItem;
 }
 
+interface PaginationInfo {
+    totalPages: number;
+    totalElements: number;
+    isFirst: boolean;
+    isLast: boolean;
+    pageNumber: number;
+    pageSize: number;
+}
+
 
 const getStatusBadgeVariant = (status: QuoteStatus) => {
   switch (status) {
@@ -83,18 +96,21 @@ export default function BuyerQuoteRequestsPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [statusFilter, setStatusFilter] = useState<'all' | QuoteStatus>('all');
+  const [currentPage, setCurrentPage] = useState(0);
+  const [paginationInfo, setPaginationInfo] = useState<PaginationInfo>({
+    totalPages: 1, totalElements: 0, isFirst: true, isLast: true, pageNumber: 0, pageSize: 10,
+  });
+
   const { toast } = useToast();
   const currentUser = useSelector(selectUser) as MyProfile | null;
   const accessToken = useSelector(selectAccessToken);
 
-  // State for the modal
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedQuote, setSelectedQuote] = useState<BuyerQuote | null>(null);
-
-  // State for withdrawal
   const [quoteToDelete, setQuoteToDelete] = useState<BuyerQuote | null>(null);
 
-  const fetchQuotes = useCallback(async () => {
+  const fetchQuotes = useCallback(async (page = 0, status: string = 'all') => {
     if (!currentUser || !accessToken) {
       setIsLoading(false);
       return;
@@ -102,14 +118,35 @@ export default function BuyerQuoteRequestsPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch(`${API_BASE_URL}/quotes/buyer/${currentUser.id}`, {
+      const params = new URLSearchParams();
+      params.append('buyerId', currentUser.id);
+      params.append('page', String(page));
+      params.append('size', '10');
+
+      if (status !== 'all') {
+        params.append('status', status);
+      }
+      
+      const response = await fetch(`${API_BASE_URL}/quotes/filter?${params.toString()}`, {
         headers: { 'Authorization': `Bearer ${accessToken}` },
       });
+      
       const responseData = await response.json();
       if (!response.ok) {
         throw new Error(responseData.message || "Failed to fetch your quotes.");
       }
-      setQuotes(responseData.data.content || []);
+
+      const quoteData = responseData.data;
+      setQuotes(quoteData?.content?.map((c: any) => c.quote) || []);
+      setPaginationInfo({
+        totalPages: quoteData?.totalPages || 1,
+        totalElements: quoteData?.totalElements || 0,
+        isFirst: quoteData?.first || true,
+        isLast: quoteData?.last || true,
+        pageNumber: quoteData?.number || 0,
+        pageSize: quoteData?.size || 10,
+      });
+
     } catch (err: any) {
       setError(err.message);
       setQuotes([]);
@@ -120,8 +157,21 @@ export default function BuyerQuoteRequestsPage() {
   }, [currentUser, accessToken, toast]);
 
   useEffect(() => {
-    fetchQuotes();
-  }, [fetchQuotes]);
+    fetchQuotes(currentPage, statusFilter);
+  }, [fetchQuotes, currentPage, statusFilter]);
+  
+  const handleRefresh = () => {
+      setCurrentPage(0);
+      fetchQuotes(0, statusFilter);
+  };
+
+  const handleStatusFilterChange = (value: string) => {
+      setCurrentPage(0);
+      setStatusFilter(value as 'all' | QuoteStatus);
+  };
+
+  const handleNextPage = () => !paginationInfo.isLast && setCurrentPage(currentPage + 1);
+  const handlePrevPage = () => !paginationInfo.isFirst && setCurrentPage(currentPage - 1);
 
   const handleViewDetails = (quote: BuyerQuote) => {
     setSelectedQuote(quote);
@@ -152,7 +202,7 @@ export default function BuyerQuoteRequestsPage() {
         
         toast({ title: "Quote Withdrawn", description: `Quote #${quoteToDelete.quoteNumber} has been successfully withdrawn.` });
 
-        fetchQuotes();
+        fetchQuotes(currentPage, statusFilter);
     } catch (err: any) {
         toast({ variant: "destructive", title: "Withdrawal Failed", description: err.message });
     } finally {
@@ -314,10 +364,31 @@ export default function BuyerQuoteRequestsPage() {
           <main className="flex-1 p-6">
             <Card className="shadow-md">
               <CardHeader>
-                <CardTitle className="font-headline">Your Quotes</CardTitle>
-                <CardDescription>Track the status of quotes you have requested or received.</CardDescription>
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
+                    <div>
+                        <CardTitle className="font-headline">Your Quotes</CardTitle>
+                        <CardDescription>Track the status of quotes you have requested or received.</CardDescription>
+                    </div>
+                    <Button onClick={handleRefresh} variant="outline" size="sm" disabled={isLoading} className="mt-2 sm:mt-0 bg-accent text-accent-foreground hover:bg-accent/90">
+                        <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                        Refresh
+                    </Button>
+                </div>
               </CardHeader>
               <CardContent>
+                <div className="p-4 border rounded-lg bg-muted/50 mb-6 flex items-center gap-4">
+                  <div className="flex-1">
+                      <label className="text-sm font-medium flex items-center mb-1"><Filter className="w-4 h-4 mr-2" />Filter by Status</label>
+                      <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                              <SelectItem value="all">All Statuses</SelectItem>
+                              {ALL_QUOTE_STATUSES.map(s => <SelectItem key={s} value={s}>{s.replace(/_/g, ' ')}</SelectItem>)}
+                          </SelectContent>
+                      </Select>
+                  </div>
+                </div>
+
                 {isLoading ? (
                   <div className="flex justify-center items-center py-8">
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -356,11 +427,6 @@ export default function BuyerQuoteRequestsPage() {
                             <Button variant="outline" size="sm" onClick={() => handleViewDetails(quote)}>
                               View Details
                             </Button>
-                            {quote.status === 'DRAFT' && (
-                               <Button variant="destructive" size="sm" onClick={() => setQuoteToDelete(quote)} disabled={isDeleting}>
-                                   {isDeleting && quoteToDelete?.id === quote.id ? <Loader2 className="h-4 w-4 animate-spin"/> : <Trash2 className="h-4 w-4" />}
-                               </Button>
-                            )}
                           </TableCell>
                         </TableRow>
                       ))}
@@ -370,10 +436,25 @@ export default function BuyerQuoteRequestsPage() {
                   <div className="text-center py-10">
                       <FileText className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
                       <p className="text-xl font-semibold text-muted-foreground">No quotes found.</p>
-                      <p className="text-sm text-muted-foreground mt-2">You have not requested any quotes yet.</p>
+                      <p className="text-sm text-muted-foreground mt-2">No quotes match your current filter.</p>
                   </div>
                 )}
               </CardContent>
+              {paginationInfo.totalPages > 1 && (
+                <CardFooter className="flex items-center justify-between pt-4 border-t">
+                    <div className="text-sm text-muted-foreground">
+                        Page <strong>{paginationInfo.pageNumber + 1}</strong> of <strong>{paginationInfo.totalPages}</strong>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Button variant="outline" size="sm" onClick={handlePrevPage} disabled={paginationInfo.isFirst || isLoading}>
+                            <ChevronLeft className="h-4 w-4 mr-1" /> Previous
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={handleNextPage} disabled={paginationInfo.isLast || isLoading}>
+                            Next <ChevronRight className="h-4 w-4 ml-1" />
+                        </Button>
+                    </div>
+                </CardFooter>
+              )}
             </Card>
           </main>
         </SidebarInset>
