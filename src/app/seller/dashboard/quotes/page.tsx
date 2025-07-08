@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSelector } from 'react-redux';
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { FileText, Loader2, Filter, User, Tag, ChevronDown, CheckCircle, XCircle, RefreshCw, ChevronLeft, ChevronRight, Image as ImageIcon } from "lucide-react";
+import { FileText, Loader2, Filter, User, Tag, ChevronDown, CheckCircle, XCircle, RefreshCw, ChevronLeft, ChevronRight, Image as ImageIcon, AlertCircle } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,33 +15,26 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { API_BASE_URL } from '@/lib/api';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
 
 export type QuoteStatus = 'DRAFT' | 'SENT' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED';
 
 const ALL_QUOTE_STATUSES: QuoteStatus[] = ['DRAFT', 'SENT', 'ACCEPTED', 'REJECTED', 'EXPIRED'];
 
-export interface SellerQuote {
+// Represents the nested quote object
+export interface Quote {
   id: string;
   quoteNumber: string;
-  buyer: {
-    id: string;
-    name: string;
-  };
-  seller: {
-    id: string;
-    name: string;
-  };
+  buyer: { id: string; name: string; };
+  seller: { id: string; name: string; };
   quoteItem: {
     id: string;
     product: { id: string; name: string };
     variant: {
       id: string;
       variantName: string | null;
-      images: {
-        id: string;
-        imageUrl: string;
-        isPrimary: boolean;
-      }[];
+      images: { id: string; imageUrl: string; isPrimary: boolean; }[];
     };
     quantity: number;
     quotedPrice: number;
@@ -58,10 +51,27 @@ export interface SellerQuote {
   deliveryTerms?: string;
 }
 
+// Represents the full item from the API's 'content' array
+export interface SellerQuoteResponseItem {
+    quote: Quote;
+    quantity: number; // Available stock in warehouse
+    warehouse: {
+        id: string;
+        name: string;
+        address: {
+            streetAddress1: string;
+            city: string;
+            state: string;
+        }
+    };
+    reservedQuantity: number;
+}
+
+
 interface BuyerGroup {
   buyerId: string;
   buyerName: string;
-  quotes: SellerQuote[];
+  items: SellerQuoteResponseItem[];
 }
 
 interface PaginationInfo {
@@ -83,7 +93,7 @@ export const getQuoteStatusBadgeVariant = (status: QuoteStatus) => {
 };
 
 export default function SellerQuotesPage() {
-  const [allQuotes, setAllQuotes] = useState<SellerQuote[]>([]);
+  const [allQuoteData, setAllQuoteData] = useState<SellerQuoteResponseItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -132,7 +142,7 @@ export default function SellerQuotesPage() {
       if (!response.ok) throw new Error(responseData.message || "Failed to fetch quotes.");
       
       const quoteData = responseData.data;
-      setAllQuotes(quoteData.content || []);
+      setAllQuoteData(quoteData.content || []);
       
       setPaginationInfo({
         totalPages: quoteData?.totalPages || 1,
@@ -146,7 +156,7 @@ export default function SellerQuotesPage() {
 
     } catch (err: any) {
       setError(err.message);
-      setAllQuotes([]);
+      setAllQuoteData([]);
       toast({ variant: "destructive", title: "Error Fetching Quotes", description: err.message });
     } finally {
       setIsLoading(false);
@@ -164,31 +174,32 @@ export default function SellerQuotesPage() {
 
   const uniqueBuyers = useMemo(() => {
     const buyers = new Map<string, string>();
-    allQuotes.forEach(quote => {
-      if (quote.buyer && !buyers.has(quote.buyer.id)) {
-        buyers.set(quote.buyer.id, quote.buyer.name);
+    allQuoteData.forEach(item => {
+      if (item.quote && item.quote.buyer && !buyers.has(item.quote.buyer.id)) {
+        buyers.set(item.quote.buyer.id, item.quote.buyer.name);
       }
     });
     return Array.from(buyers, ([id, name]) => ({ id, name }));
-  }, [allQuotes]);
+  }, [allQuoteData]);
 
   const groupedAndFilteredQuotes = useMemo(() => {
-    const grouped = allQuotes.reduce<Record<string, BuyerGroup>>((acc, quote) => {
-      if (quote.buyer) {
-        const buyerId = quote.buyer.id;
+    const grouped = allQuoteData.reduce<Record<string, BuyerGroup>>((acc, item) => {
+      if (item.quote && item.quote.buyer) {
+        const buyerId = item.quote.buyer.id;
         if (!acc[buyerId]) {
-          acc[buyerId] = { buyerId, buyerName: quote.buyer.name, quotes: [] };
+          acc[buyerId] = { buyerId, buyerName: item.quote.buyer.name, items: [] };
         }
-        acc[buyerId].quotes.push(quote);
+        acc[buyerId].items.push(item);
       }
       return acc;
     }, {});
     
     return Object.values(grouped).sort((a, b) => a.buyerName.localeCompare(b.buyerName));
-  }, [allQuotes]);
+  }, [allQuoteData]);
 
 
-  const handleUpdateStatus = async (quote: SellerQuote) => {
+  const handleUpdateStatus = async (item: SellerQuoteResponseItem) => {
+    const { quote } = item;
     const newStatus = pendingStatusChanges[quote.id];
     if (!newStatus) return;
 
@@ -312,97 +323,126 @@ export default function SellerQuotesPage() {
             )}
 
             {!isLoading && !error && groupedAndFilteredQuotes.length > 0 && (
-              <Accordion type="multiple" className="w-full space-y-4" defaultValue={groupedAndFilteredQuotes.map(g => g.buyerId)}>
-                {groupedAndFilteredQuotes.map(group => (
-                  <AccordionItem key={group.buyerId} value={group.buyerId} className="border-b-0">
-                    <Card className="shadow-sm">
-                      <AccordionTrigger className="p-4 hover:no-underline">
-                        <div className="flex items-center gap-3">
-                          <User className="h-5 w-5 text-primary" />
-                          <span className="font-headline text-lg">{group.buyerName}</span>
-                          <Badge variant="secondary">{group.quotes.length} Quote(s)</Badge>
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent className="p-0">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead className="w-[80px]">Image</TableHead>
-                              <TableHead>Quote #</TableHead>
-                              <TableHead>Product / Variant</TableHead>
-                              <TableHead className="text-right">Qty</TableHead>
-                              <TableHead className="text-right">Total</TableHead>
-                              <TableHead>Current Status</TableHead>
-                              <TableHead>Update Status</TableHead>
-                              <TableHead className="text-right">Actions</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {group.quotes.map(quote => {
-                              const primaryImage = quote.quoteItem?.variant.images?.find(i => i.isPrimary) || quote.quoteItem?.variant.images?.[0];
-                              return (
-                              <TableRow key={quote.id}>
-                                <TableCell>
-                                  <Avatar className="h-12 w-12 rounded-md">
-                                    <AvatarImage src={primaryImage?.imageUrl} alt={quote.quoteItem?.product.name} className="object-cover" />
-                                    <AvatarFallback className="rounded-md bg-muted">
-                                        <ImageIcon className="h-6 w-6 text-muted-foreground" />
-                                    </AvatarFallback>
-                                  </Avatar>
-                                </TableCell>
-                                <TableCell className="font-medium">{quote.quoteNumber}</TableCell>
-                                <TableCell>
-                                    {quote.quoteItem ? (
-                                        <div className="flex flex-col">
-                                            <span className="font-medium truncate max-w-[200px]" title={quote.quoteItem.product.name}>
-                                                {quote.quoteItem.product.name}
-                                            </span>
-                                            <span className="text-xs text-muted-foreground">
-                                                {quote.quoteItem.variant.variantName || 'Default'}
-                                            </span>
-                                        </div>
-                                    ) : (
-                                        <span className="text-muted-foreground">N/A</span>
-                                    )}
-                                </TableCell>
-                                <TableCell className="text-right">{quote.quoteItem?.quantity ?? 'N/A'}</TableCell>
-                                <TableCell className="text-right">${quote.totalAmount.toFixed(2)}</TableCell>
-                                <TableCell>
-                                  <Badge variant={getQuoteStatusBadgeVariant(quote.status)} className={quote.status === 'ACCEPTED' ? 'bg-green-500 hover:bg-green-600 text-white' : ''}>
-                                    {quote.status.replace(/_/g, ' ')}
-                                  </Badge>
-                                </TableCell>
-                                <TableCell>
-                                  <Select
-                                    defaultValue={quote.status}
-                                    onValueChange={(newStatus: QuoteStatus) => setPendingStatusChanges(prev => ({ ...prev, [quote.id]: newStatus }))}
-                                  >
-                                    <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                      {ALL_QUOTE_STATUSES.map(s => <SelectItem key={s} value={s}>{s.replace(/_/g, ' ')}</SelectItem>)}
-                                    </SelectContent>
-                                  </Select>
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    disabled={!pendingStatusChanges[quote.id] || isUpdating[quote.id] || pendingStatusChanges[quote.id] === quote.status}
-                                    onClick={() => handleUpdateStatus(quote)}
-                                    className="bg-accent text-accent-foreground hover:bg-accent/80"
-                                  >
-                                    {isUpdating[quote.id] ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Update'}
-                                  </Button>
-                                </TableCell>
+              <TooltipProvider>
+                <Accordion type="multiple" className="w-full space-y-4" defaultValue={groupedAndFilteredQuotes.map(g => g.buyerId)}>
+                  {groupedAndFilteredQuotes.map(group => (
+                    <AccordionItem key={group.buyerId} value={group.buyerId} className="border-b-0">
+                      <Card className="shadow-sm">
+                        <AccordionTrigger className="p-4 hover:no-underline">
+                          <div className="flex items-center gap-3">
+                            <User className="h-5 w-5 text-primary" />
+                            <span className="font-headline text-lg">{group.buyerName}</span>
+                            <Badge variant="secondary">{group.items.length} Quote(s)</Badge>
+                          </div>
+                        </AccordionTrigger>
+                        <AccordionContent className="p-0">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="w-[80px]">Image</TableHead>
+                                <TableHead>Quote #</TableHead>
+                                <TableHead>Product / Variant</TableHead>
+                                <TableHead className="text-right">Req. Qty</TableHead>
+                                <TableHead>Warehouse</TableHead>
+                                <TableHead className="text-right">Avail. Stock</TableHead>
+                                <TableHead>Current Status</TableHead>
+                                <TableHead>Update Status</TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
                               </TableRow>
-                            )})}
-                          </TableBody>
-                        </Table>
-                      </AccordionContent>
-                    </Card>
-                  </AccordionItem>
-                ))}
-              </Accordion>
+                            </TableHeader>
+                            <TableBody>
+                              {group.items.map(item => {
+                                const { quote, quantity: availableStock, warehouse, reservedQuantity } = item;
+                                const requestedQty = quote.quoteItem?.quantity ?? 0;
+                                const hasEnoughStock = availableStock >= requestedQty;
+                                const primaryImage = quote.quoteItem?.variant.images?.find(i => i.isPrimary) || quote.quoteItem?.variant.images?.[0];
+                                return (
+                                <TableRow key={quote.id}>
+                                  <TableCell>
+                                    <Avatar className="h-12 w-12 rounded-md">
+                                      <AvatarImage src={primaryImage?.imageUrl} alt={quote.quoteItem?.product.name} className="object-cover" />
+                                      <AvatarFallback className="rounded-md bg-muted">
+                                          <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                                      </AvatarFallback>
+                                    </Avatar>
+                                  </TableCell>
+                                  <TableCell className="font-medium">{quote.quoteNumber}</TableCell>
+                                  <TableCell>
+                                      {quote.quoteItem ? (
+                                          <div className="flex flex-col">
+                                              <span className="font-medium truncate max-w-[200px]" title={quote.quoteItem.product.name}>
+                                                  {quote.quoteItem.product.name}
+                                              </span>
+                                              <span className="text-xs text-muted-foreground">
+                                                  {quote.quoteItem.variant.variantName || 'Default'}
+                                              </span>
+                                          </div>
+                                      ) : ( <span className="text-muted-foreground">N/A</span> )}
+                                  </TableCell>
+                                  <TableCell className="text-right">{requestedQty}</TableCell>
+                                  <TableCell>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <span className="underline decoration-dotted cursor-help truncate max-w-[150px]">{warehouse?.name || 'N/A'}</span>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <p>{warehouse?.address?.streetAddress1}</p>
+                                            <p>{warehouse?.address?.city}, {warehouse?.address?.state}</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    <div className="flex items-center justify-end gap-1">
+                                        <span>{availableStock}</span>
+                                        {!hasEnoughStock && (
+                                            <Tooltip>
+                                                <TooltipTrigger>
+                                                    <AlertCircle className="h-4 w-4 text-destructive" />
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                    <p>Insufficient stock to fulfill this quote.</p>
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        )}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Badge variant={getQuoteStatusBadgeVariant(quote.status)} className={quote.status === 'ACCEPTED' ? 'bg-green-500 hover:bg-green-600 text-white' : ''}>
+                                      {quote.status.replace(/_/g, ' ')}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Select
+                                      defaultValue={quote.status}
+                                      onValueChange={(newStatus: QuoteStatus) => setPendingStatusChanges(prev => ({ ...prev, [quote.id]: newStatus }))}
+                                    >
+                                      <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
+                                      <SelectContent>
+                                        {ALL_QUOTE_STATUSES.map(s => <SelectItem key={s} value={s}>{s.replace(/_/g, ' ')}</SelectItem>)}
+                                      </SelectContent>
+                                    </Select>
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      disabled={!pendingStatusChanges[quote.id] || isUpdating[quote.id] || pendingStatusChanges[quote.id] === quote.status}
+                                      onClick={() => handleUpdateStatus(item)}
+                                      className="bg-accent text-accent-foreground hover:bg-accent/80"
+                                    >
+                                      {isUpdating[quote.id] ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Update'}
+                                    </Button>
+                                  </TableCell>
+                                </TableRow>
+                              )})}
+                            </TableBody>
+                          </Table>
+                        </AccordionContent>
+                      </Card>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+              </TooltipProvider>
             )}
           </CardContent>
           {paginationInfo.totalPages > 1 && (
