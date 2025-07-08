@@ -116,6 +116,7 @@ export default function SellerProductManagerPage() {
     try {
       const response = await fetch(`${API_BASE_URL}/products/seller/${currentUser.id}?page=${page}&size=10`, {
         headers: { 'Authorization': `Bearer ${accessToken}` },
+        cache: 'no-store', // Ensure fresh data is fetched
       });
 
       const responseData = await response.json();
