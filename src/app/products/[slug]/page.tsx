@@ -81,7 +81,22 @@ export default function ProductDetailPage() {
     if (product) {
        const initialVariant = product.variants?.[0] || null;
        setSelectedVariant(initialVariant);
-       // Quantity is set by the useEffect watching effectiveMoq
+       // Set initial quantity based on the first variant's MOQ
+       if (initialVariant) {
+          let initialMoq = product?.minimumOrderQuantity || 1;
+           if (initialVariant.priceTiers && initialVariant.priceTiers.length > 0) {
+              const variantMoq = initialVariant.priceTiers.reduce(
+                (min, tier) => Math.min(min, tier.minQuantity),
+                Infinity
+              );
+              if (isFinite(variantMoq) && variantMoq > 0) {
+                initialMoq = variantMoq;
+              }
+            }
+          setQuantity(initialMoq);
+       } else {
+          setQuantity(product.minimumOrderQuantity || 1);
+       }
        setSelectedImageIndex(0);
     }
   }, [product]);
@@ -100,21 +115,67 @@ export default function ProductDetailPage() {
     // Fallback to the main product's MOQ
     return product?.minimumOrderQuantity || 1;
   }, [selectedVariant, product?.minimumOrderQuantity]);
+  
+  const maxAllowedQuantity = useMemo(() => {
+    if (!selectedVariant || !selectedVariant.priceTiers) {
+      return null; // No limit
+    }
+    const maxTier = selectedVariant.priceTiers.reduce((max, tier) => {
+      if (tier.maxQuantity !== null && tier.maxQuantity > (max || 0)) {
+        return tier.maxQuantity;
+      }
+      return max;
+    }, null as number | null);
+    
+    return maxTier;
+  }, [selectedVariant]);
+  
+  const currentPricePerUnit = useMemo(() => {
+    if (!selectedVariant || !selectedVariant.priceTiers || selectedVariant.priceTiers.length === 0) {
+        return selectedVariant?.basePrice ?? product?.basePrice ?? 0;
+    }
+    
+    // Sort tiers by minQuantity descending to find the best match for the current quantity
+    const sortedTiers = [...selectedVariant.priceTiers].sort((a, b) => b.minQuantity - a.minQuantity);
+    
+    const applicableTier = sortedTiers.find(tier => quantity >= tier.minQuantity);
+    
+    if (applicableTier) {
+        return applicableTier.pricePerUnit;
+    }
+    
+    // Fallback if quantity is below the lowest minQuantity, use the variant's base price
+    return selectedVariant.basePrice ?? product?.basePrice ?? 0;
+  }, [quantity, selectedVariant, product?.basePrice]);
 
-  useEffect(() => {
-    // Whenever the effective MOQ changes (on product load or variant change),
-    // ensure the quantity is at least the new MOQ.
-    setQuantity(q => Math.max(effectiveMoq, q));
-  }, [effectiveMoq]);
 
   const handleVariantChange = (variant: ProductVariant) => {
     setSelectedVariant(variant);
-    // The useEffect watching `effectiveMoq` will handle the quantity update.
+    
+    // Calculate MOQ for the newly selected variant and reset quantity
+    let newMoq = product?.minimumOrderQuantity || 1;
+    if (variant.priceTiers && variant.priceTiers.length > 0) {
+      const variantMoq = variant.priceTiers.reduce(
+        (min, tier) => Math.min(min, tier.minQuantity),
+        Infinity
+      );
+      if (isFinite(variantMoq) && variantMoq > 0) {
+        newMoq = variantMoq;
+      }
+    }
+    setQuantity(newMoq);
+
     setSelectedImageIndex(0); // Reset image to the first one for the new variant
   };
 
   const handleQuantityChange = (amount: number) => {
-    setQuantity(prev => Math.max(effectiveMoq, prev + amount));
+    setQuantity(prev => {
+      let newQuantity = Math.max(effectiveMoq, prev + amount);
+      if (maxAllowedQuantity !== null && newQuantity > maxAllowedQuantity) {
+        newQuantity = maxAllowedQuantity;
+      }
+      return newQuantity;
+    });
   };
 
   const handleAddToCart = async () => {
@@ -304,31 +365,13 @@ export default function ProductDetailPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-semibold text-primary mb-2">${selectedVariant?.basePrice?.toFixed(2) || product.basePrice?.toFixed(2) || 'N/A'}</p>
-            
-            {selectedVariant?.priceTiers && selectedVariant.priceTiers.length > 0 && (
-                <div className="mb-4">
-                    <h4 className="font-semibold text-sm mb-2 text-muted-foreground">Volume Pricing</h4>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead className="h-8">Min Qty</TableHead>
-                                <TableHead className="h-8">Max Qty</TableHead>
-                                <TableHead className="h-8 text-right">Price/Unit</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {selectedVariant.priceTiers.map(tier => (
-                                <TableRow key={tier.id}>
-                                    <TableCell className="py-1">{tier.minQuantity}</TableCell>
-                                    <TableCell className="py-1">{tier.maxQuantity || 'and up'}</TableCell>
-                                    <TableCell className="py-1 text-right">${tier.pricePerUnit.toFixed(2)}</TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </div>
-            )}
+             <div className="flex items-baseline gap-2 mb-2">
+                <p className="text-2xl font-semibold text-primary">${currentPricePerUnit.toFixed(2)}</p>
+                <span className="text-sm text-muted-foreground">/ unit</span>
+            </div>
+            <div className="text-lg font-semibold text-foreground mb-6">
+                Total: ${(currentPricePerUnit * quantity).toFixed(2)}
+            </div>
 
             <p className="text-muted-foreground whitespace-pre-line text-sm mb-6">{product.description}</p>
             <Separator className="mb-6" />
@@ -357,24 +400,28 @@ export default function ProductDetailPage() {
                 <Input id="quantity" type="number" value={quantity}
                   onChange={(e) => {
                     const val = parseInt(e.target.value);
-                    if (!isNaN(val)) setQuantity(Math.max(effectiveMoq, val));
+                    if (!isNaN(val)) {
+                        let newQuantity = Math.max(effectiveMoq, val);
+                        if (maxAllowedQuantity !== null && newQuantity > maxAllowedQuantity) {
+                            newQuantity = maxAllowedQuantity;
+                        }
+                        setQuantity(newQuantity);
+                    }
                   }}
-                  onBlur={() => { if (quantity < effectiveMoq) setQuantity(effectiveMoq) }}
-                  className="w-20 text-center mx-2" min={effectiveMoq}
+                  onBlur={() => {
+                      if (quantity < effectiveMoq) {
+                          setQuantity(effectiveMoq);
+                      }
+                      if (maxAllowedQuantity !== null && quantity > maxAllowedQuantity) {
+                          setQuantity(maxAllowedQuantity);
+                      }
+                  }}
+                  className="w-20 text-center mx-2" min={effectiveMoq} max={maxAllowedQuantity ?? undefined}
                 />
-                <Button variant="outline" size="icon" onClick={() => handleQuantityChange(1)}> <Plus className="h-4 w-4" /> </Button>
+                <Button variant="outline" size="icon" onClick={() => handleQuantityChange(1)} disabled={maxAllowedQuantity !== null && quantity >= maxAllowedQuantity}> <Plus className="h-4 w-4" /> </Button>
               </div>
               <p className="text-xs text-muted-foreground mt-1">Minimum Order Quantity (MOQ): {effectiveMoq}</p>
             </div>
-            
-            <Alert>
-                <Info className="h-4 w-4"/>
-                <AlertTitle className="text-sm">Note on Pricing</AlertTitle>
-                <AlertDescription className="text-xs">
-                    The final price may vary based on the quantity requested. The seller will confirm the price in the official quote.
-                </AlertDescription>
-            </Alert>
-
 
           </CardContent>
           <CardFooter className="flex flex-col sm:flex-row gap-3">
