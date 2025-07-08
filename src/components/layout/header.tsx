@@ -21,7 +21,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 export default function Header() {
   const isAuthenticated = useSelector(selectIsAuthenticated);
@@ -30,10 +30,30 @@ export default function Header() {
   const router = useRouter();
   const { toast } = useToast();
   const [mounted, setMounted] = useState(false);
+  const [quoteHref, setQuoteHref] = useState('/cart'); // Default for server render
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const getQuoteLink = useCallback(() => {
+    if (isAuthenticated && user) {
+      if (user.role === 'BUYER') {
+        return '/buyer/dashboard/quote-requests';
+      }
+      if (user.role === 'SELLER') {
+        return '/seller/dashboard/quotes';
+      }
+    }
+    // Default for guest users or other roles
+    return '/cart';
+  }, [isAuthenticated, user]);
+  
+  useEffect(() => {
+    if (mounted) {
+      setQuoteHref(getQuoteLink());
+    }
+  }, [mounted, getQuoteLink]);
 
   const handleLogout = () => {
     dispatch(logout());
@@ -51,19 +71,6 @@ export default function Header() {
       return `${names[0][0]}${names[names.length - 1][0]}`.toUpperCase();
     }
     return name.substring(0, 2).toUpperCase();
-  };
-
-  const getQuoteLink = () => {
-    if (isAuthenticated && user) {
-      if (user.role === 'BUYER') {
-        return '/buyer/dashboard/quote-requests';
-      }
-      if (user.role === 'SELLER') {
-        return '/seller/dashboard/quotes';
-      }
-    }
-    // Default for guest users or other roles
-    return '/cart';
   };
 
   return (
@@ -102,7 +109,7 @@ export default function Header() {
         <div className="flex flex-1 items-center justify-end space-x-2 md:flex-initial">
           <ThemeToggleButton />
           <Button variant="ghost" size="icon" asChild>
-            <Link href={getQuoteLink()} aria-label="My Quotes">
+            <Link href={quoteHref} aria-label="My Quotes">
               <FileText className="h-5 w-5" />
             </Link>
           </Button>
@@ -186,7 +193,7 @@ export default function Header() {
                   Products
                 </Link>
                 <Link
-                  href={getQuoteLink()}
+                  href={quoteHref}
                   className="text-muted-foreground hover:text-primary flex items-center"
                 >
                   <FileText className="mr-2 h-5 w-5" /> My Quotes
