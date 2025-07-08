@@ -365,12 +365,9 @@ export default function ProductDetailPage() {
             </div>
           </CardHeader>
           <CardContent>
-             <div className="flex items-baseline gap-2 mb-2">
+             <div className="flex items-baseline gap-2 mb-6">
                 <p className="text-2xl font-semibold text-primary">${currentPricePerUnit.toFixed(2)}</p>
                 <span className="text-sm text-muted-foreground">/ unit</span>
-            </div>
-            <div className="text-lg font-semibold text-foreground mb-6">
-                Total: ${(currentPricePerUnit * quantity).toFixed(2)}
             </div>
 
             <p className="text-muted-foreground whitespace-pre-line text-sm mb-6">{product.description}</p>
@@ -423,6 +420,9 @@ export default function ProductDetailPage() {
               <p className="text-xs text-muted-foreground mt-1">Minimum Order Quantity (MOQ): {effectiveMoq}</p>
             </div>
 
+            <div className="text-xl font-semibold text-foreground mt-6 pt-4 border-t">
+              Total: <span className="text-primary">${(currentPricePerUnit * quantity).toFixed(2)}</span>
+            </div>
           </CardContent>
           <CardFooter className="flex flex-col sm:flex-row gap-3">
             <Button size="lg" className="w-full sm:flex-1 bg-accent text-accent-foreground hover:bg-accent/90" onClick={handleAddToCart} disabled={!product.available || isSubmitting}>
