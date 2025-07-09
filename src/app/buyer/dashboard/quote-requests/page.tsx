@@ -15,7 +15,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { LayoutDashboard, ShoppingCart, Heart, MessageCircle, FileText, Bell, Settings, MapPin, Loader2, Package, Tag, ReceiptText, Trash2, RefreshCw, ChevronLeft, ChevronRight, Filter } from "lucide-react";
+import { LayoutDashboard, ShoppingCart, Heart, MessageCircle, FileText, Bell, Settings, MapPin, Loader2, Package, Tag, ReceiptText, Trash2, RefreshCw, ChevronLeft, ChevronRight, Filter, Image as ImageIcon } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -47,6 +47,7 @@ interface QuoteItem {
     images: {
       id: string;
       imageUrl: string;
+      isPrimary?: boolean;
     }[];
   };
   quantity: number;
@@ -231,7 +232,7 @@ export default function BuyerQuoteRequestsPage() {
     }
 
     const item = selectedQuote.quoteItem;
-    const primaryImage = item.variant?.images?.[0];
+    const primaryImage = item.variant?.images?.find(img => img.isPrimary) || item.variant?.images?.[0];
 
     return (
       <>
@@ -434,22 +435,37 @@ export default function BuyerQuoteRequestsPage() {
                                             <Table>
                                                 <TableHeader>
                                                     <TableRow>
-                                                        <TableHead>Quote #</TableHead>
-                                                        <TableHead>Seller</TableHead>
-                                                        <TableHead>Created</TableHead>
+                                                        <TableHead className="w-[80px] hidden sm:table-cell">Image</TableHead>
+                                                        <TableHead>Product / Quote</TableHead>
+                                                        <TableHead className="hidden md:table-cell">Seller</TableHead>
                                                         <TableHead className="text-right">Quantity</TableHead>
-                                                        <TableHead className="text-right">Total</TableHead>
+                                                        <TableHead className="text-right hidden md:table-cell">Total</TableHead>
                                                         <TableHead className="text-right">Actions</TableHead>
                                                     </TableRow>
                                                 </TableHeader>
                                                 <TableBody>
-                                                    {group.map((quote) => (
+                                                    {group.map((quote) => {
+                                                      const primaryImage = quote.quoteItem?.variant?.images?.find(img => img.isPrimary) || quote.quoteItem?.variant?.images?.[0];
+                                                      return (
                                                         <TableRow key={quote.id}>
-                                                            <TableCell className="font-medium">{quote.quoteNumber}</TableCell>
-                                                            <TableCell>{quote.seller.name}</TableCell>
-                                                            <TableCell>{new Date(quote.createdAt).toLocaleDateString()}</TableCell>
+                                                            <TableCell className="hidden sm:table-cell">
+                                                                <img 
+                                                                    src={primaryImage?.imageUrl || 'https://placehold.co/100x100.png'} 
+                                                                    alt={quote.quoteItem?.product?.name || 'Product Image'} 
+                                                                    className="w-12 h-12 object-cover rounded-md border"
+                                                                />
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <div className="font-medium max-w-[200px] truncate" title={quote.quoteItem?.product?.name}>
+                                                                    {quote.quoteItem?.product?.name || 'N/A'}
+                                                                </div>
+                                                                <div className="text-xs text-muted-foreground">
+                                                                    {quote.quoteNumber}
+                                                                </div>
+                                                            </TableCell>
+                                                            <TableCell className="hidden md:table-cell">{quote.seller.name}</TableCell>
                                                             <TableCell className="text-right">{quote.quoteItem?.quantity ?? 'N/A'}</TableCell>
-                                                            <TableCell className="text-right">${quote.totalAmount.toFixed(2)}</TableCell>
+                                                            <TableCell className="text-right hidden md:table-cell">${quote.totalAmount.toFixed(2)}</TableCell>
                                                             <TableCell className="text-right space-x-2">
                                                                 <Button variant="outline" size="sm" onClick={() => handleViewDetails(quote)}>View Details</Button>
                                                                 {quote.status === 'DRAFT' && (
@@ -459,7 +475,8 @@ export default function BuyerQuoteRequestsPage() {
                                                                 )}
                                                             </TableCell>
                                                         </TableRow>
-                                                    ))}
+                                                      );
+                                                    })}
                                                 </TableBody>
                                             </Table>
                                         </AccordionContent>
